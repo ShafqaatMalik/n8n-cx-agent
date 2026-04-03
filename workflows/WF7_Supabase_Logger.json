@@ -1,0 +1,243 @@
+{
+  "name": "WF7 — Supabase Logger",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "log-ticket",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "992bf5c5-961b-4e9c-8e7b-99cf4ee1162f",
+      "name": "Webhook",
+      "webhookId": "139c689e-b977-4221-97da-2611aff12343"
+    },
+    {
+      "parameters": {
+        "tableId": "support_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "channel",
+              "fieldValue": "={{ $json.body.channel }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.body.customer_id }}"
+            },
+            {
+              "fieldId": "message",
+              "fieldValue": "={{ $json.body.message }}"
+            },
+            {
+              "fieldId": "intent",
+              "fieldValue": "={{ $json.body.intent }}"
+            },
+            {
+              "fieldId": "confidence",
+              "fieldValue": "={{ $json.body.confidence }}"
+            },
+            {
+              "fieldId": "rag_answer",
+              "fieldValue": "={{ $json.body.rag_answer }}"
+            },
+            {
+              "fieldId": "grounded",
+              "fieldValue": "={{ $json.body.grounded }}"
+            },
+            {
+              "fieldId": "escalated",
+              "fieldValue": "={{ $json.body.escalated }}"
+            },
+            {
+              "fieldId": "response_ms",
+              "fieldValue": "={{ $json.body.response_ms }}"
+            },
+            {
+              "fieldId": "ticket_id",
+              "fieldValue": "={{ $json.body.ticket_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        400,
+        96
+      ],
+      "id": "337a8c96-8053-43ca-998a-5e4fa0b26a78",
+      "name": "Insert Support Log",
+      "credentials": {
+        "supabaseApi": {
+          "id": "BPqBY3JI5P6oOSqs",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\": \"ok\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        592,
+        0
+      ],
+      "id": "99945be0-cfa0-405f-9b37-f2df190f2b0e",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "support_logs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ticket_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.ticket_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "resolved",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "resolution_note",
+              "fieldValue": "={{ $json.body.resolution_note }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        400,
+        -112
+      ],
+      "id": "67a19852-bb29-4241-9975-071dbdd73eac",
+      "name": "Update Ticket Resolved",
+      "credentials": {
+        "supabaseApi": {
+          "id": "BPqBY3JI5P6oOSqs",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7d7acb10-d040-4b37-90ed-baaec23afc9b",
+              "leftValue": "={{ $json.body.action}}",
+              "rightValue": "update",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        192,
+        0
+      ],
+      "id": "832bc4a5-2777-42c5-8576-9ed9b0ed1436",
+      "name": "Route: Update or Insert"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Route: Update or Insert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Support Log": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route: Update or Insert": {
+      "main": [
+        [
+          {
+            "node": "Update Ticket Resolved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert Support Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Ticket Resolved": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "707f9f5f-2206-473f-af8c-b15778bcea2b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3aa5d05bd944b1a046a965028417fe45892f642260fb797fac57ae0d5403a374"
+  },
+  "id": "qGUhS0nixlN2B4u7",
+  "tags": []
+}

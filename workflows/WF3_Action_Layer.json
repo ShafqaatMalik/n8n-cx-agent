@@ -1,0 +1,1150 @@
+{
+  "name": "WF3 — Action Layer",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"ticket_id\": \"1774527751564\",\n  \"message\": \"refund the order no 1005\",\n  \"intent\": \"refund_request\",\n  \"sentiment\": \"neutral\",\n  \"urgency\": \"medium\",\n  \"requires_action\": true,\n  \"customer_id\": \"unknown\",\n  \"channel\": \"chat\",\n  \"start_time\": 1774527751567\n}"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -816,
+        -864
+      ],
+      "id": "9001332e-35b6-4fb5-a0d2-18653d66686b",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Customer message: {{ $json.message }} Customer intent (from classifier): {{ $json.intent }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are an entity extractor for VoltShop customer support.  Extract relevant entities from the customer message. Respond ONLY with a JSON object:  {   \"order_id\": \"the order number if mentioned (e.g., '#VS-1001', '1001', 'VS-1001') or null\",   \"email\": \"customer email if mentioned or null\",   \"action_type\": \"order_status\" | \"refund_request\",   \"product_mentioned\": \"product name if mentioned or null\",   \"amount_mentioned\": \"dollar amount if mentioned or null\" }  Rules: - Extract order IDs in any format: #1001, VS-1001, order 1001, etc. - Normalize order IDs to just the number (e.g., \"1001\") - If the customer wants to know where their order is or delivery status → action_type = \"order_status\" - If the customer wants money back, return, or refund → action_type = \"refund_request\" - If you can't determine the action type from context, default to \"order_status\""
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -592,
+        -864
+      ],
+      "id": "8c35adbe-23eb-4139-a261-562eefaa710d",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -528,
+        -640
+      ],
+      "id": "a78f7972-3700-4e73-a3cf-2a47b313ca70",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Ay8K01i7YPO2C2iu",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "203b6b1a-a5ce-4722-a476-01fd6358e398",
+              "name": "Response",
+              "value": "I'd be happy to help! Please provide your order number AND the email address  used at checkout so I can process your refund.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        -960
+      ],
+      "id": "c0984807-d585-412f-a00f-a28967096ad8",
+      "name": "Ask Customer for Details"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ce0da58c-2da9-44fe-8cbe-343e48554a59",
+                    "leftValue": "={{ $json.action_type }}",
+                    "rightValue": "order_status",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6937d803-8c9d-431f-922d-bf2e5509c8d0",
+                    "leftValue": "={{ $json.action_type }}",
+                    "rightValue": "refund_request",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        -768
+      ],
+      "id": "71d8566a-cd9b-42ad-abe5-231c4916cc2d",
+      "name": "Route by Action Type"
+    },
+    {
+      "parameters": {
+        "url": "https://voltshop-dev.myshopify.com/admin/api/2024-01/orders.json?status=any",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpMultipleHeadersAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "={{ $json.order_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        432,
+        -864
+      ],
+      "id": "0f07b154-70ee-4439-b7a0-5792a584d588",
+      "name": "Shopify — Get Orders",
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "pv709K3XdJb4J31c",
+          "name": "Multiple Headers Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst orders = input.orders || [];\n\nif (orders.length === 0) {\n  return [{\n    json: {\n      success: false,\n      response: \"I couldn't find an order matching that information. Could you please double-check your order number?\",\n      action: 'order_status',\n      ticket_id: $('Parse Entity JSON').first().json.ticket_id,\n    }\n  }];\n}\n\nconst order = orders[0];\nconst status = order.fulfillment_status || 'unfulfilled';\nconst financial = order.financial_status || 'unknown';\nconst createdAt = new Date(order.created_at).toLocaleDateString('en-US', {\n  year: 'numeric', month: 'long', day: 'numeric'\n});\n\nconst items = (order.line_items || [])\n  .map(item => `${item.name} (x${item.quantity})`)\n  .join(', ');\n\nlet trackingInfo = '';\nif (order.fulfillments && order.fulfillments.length > 0) {\n  const fulfillment = order.fulfillments[0];\n  trackingInfo = `\\nTracking: ${fulfillment.tracking_company || 'N/A'} — ${fulfillment.tracking_number || 'Not yet available'}`;\n}\n\nconst statusMap = {\n  'fulfilled': '✅ Shipped',\n  'partial': '📦 Partially Shipped',\n  'unfulfilled': '⏳ Processing',\n  'null': '⏳ Processing',\n};\n\nconst displayStatus = statusMap[status] || `📋 ${status}`;\n\nconst response = `Here's the status of your order #${order.order_number || order.name}:\n\n📅 Placed: ${createdAt}\n📦 Status: ${displayStatus}\n💰 Total: $${order.total_price}\n🛍️ Items: ${items}${trackingInfo}\n\nIs there anything else I can help you with?`;\n\nreturn [{\n  json: {\n    success: true,\n    response: response,\n    action: 'order_status',\n    order_id: order.id,\n    order_number: order.order_number || order.name,\n    financial_status: financial,\n    ticket_id: $('Parse Entity JSON').first().json.ticket_id,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        -864
+      ],
+      "id": "20c93013-49d3-46e4-b55b-d31b5c4885f5",
+      "name": "Format Order Response"
+    },
+    {
+      "parameters": {
+        "url": "https://api.stripe.com/v1/charges?limit=100",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "stripeApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1104,
+        -768
+      ],
+      "id": "a153a3da-c298-4b70-9e5e-eea161b1c647",
+      "name": "Stripe — Get Charges",
+      "credentials": {
+        "stripeApi": {
+          "id": "CHsYS99ILBcie3cw",
+          "name": "Stripe account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const charges = $input.first().json.data || [];\nconst parsedData = $('Parse Entity JSON').first().json;\nconst wfData = $('When Executed by Another Workflow').first().json;\nconst ticketId = wfData.ticket_id ?? '';\nconst orderDescription = parsedData.order_id || '';\nconst amountMentioned = parsedData.amount_mentioned;\nconst productMentioned = (parsedData.product_mentioned || '').toLowerCase();\n\nlet matchedCharge = null;\n\nfor (const charge of charges) {\n  const desc = (charge.description || '').toLowerCase();\n  if (orderDescription && desc.includes(String(orderDescription).toLowerCase())) {\n    matchedCharge = charge;\n    break;\n  }\n}\n\nif (!matchedCharge && productMentioned) {\n  for (const charge of charges) {\n    const desc = (charge.description || '').toLowerCase();\n    if (desc.includes(productMentioned)) {\n      matchedCharge = charge;\n      break;\n    }\n  }\n}\n\nif (matchedCharge && matchedCharge.refunded) {\n  return [{\n    json: {\n      success: false,\n      charge_id: null,\n      response: \"This order has already been refunded. If you believe this is an error, let me connect you with a team member.\",\n      ticket_id: ticketId\n    }\n  }];\n}\n\nif (matchedCharge && amountMentioned) {\n  const claimedAmount = Math.round(parseFloat(amountMentioned) * 100);\n  const actualAmount = matchedCharge.amount;\n  if (Math.abs(claimedAmount - actualAmount) > 100) {\n    const actualDisplay = (actualAmount / 100).toFixed(2);\n    return [{\n      json: {\n        success: false,\n        charge_id: null,\n        response: `The amount you mentioned ($${amountMentioned}) doesn't match the actual charge of $${actualDisplay} for this order. Could you please verify the amount?`,\n        ticket_id: ticketId\n      }\n    }];\n  }\n}\n\nif (!matchedCharge) {\n  return [{\n    json: {\n      success: false,\n      charge_id: null,\n      response: \"I couldn't find a matching payment for that order. Let me connect you with a team member who can help.\",\n      needs_escalation: true,\n      ticket_id: ticketId\n    }\n  }];\n}\n\nconst amountInDollars = (matchedCharge.amount / 100).toFixed(2);\nreturn [{\n  json: {\n    charge_id: matchedCharge.id,\n    amount: matchedCharge.amount,\n    amount_display: `$${amountInDollars}`,\n    description: matchedCharge.description,\n    already_refunded: matchedCharge.refunded,\n    auto_approve: matchedCharge.amount <= 5000,\n    needs_human_approval: matchedCharge.amount > 5000,\n    ticket_id: ticketId,\n    \n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        -768
+      ],
+      "id": "b05f490a-1ab4-4e47-838f-66b473fe0788",
+      "name": "Match Payment to Order"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6031c991-fbfb-4f3b-99d3-7775d7459c4c",
+              "leftValue": "={{ $json.auto_approve }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1776,
+        -864
+      ],
+      "id": "2c4c154a-a9f5-48d6-b3c9-7fe6cf4cc129",
+      "name": "Refund Threshold Check"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.stripe.com/v1/refunds",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "stripeApi",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "charge",
+              "value": "={{ $json.charge_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2000,
+        -960
+      ],
+      "id": "41e75018-c238-4d56-98bd-e4b77238f0a0",
+      "name": "Stripe — Process Refund",
+      "credentials": {
+        "stripeApi": {
+          "id": "CHsYS99ILBcie3cw",
+          "name": "Stripe account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8a670ba8-50a1-493d-bcc9-3613b48c7dbe",
+              "name": "response",
+              "value": "=Your refund request of {{ $('Match Payment to Order').first().json.amount_display }} has been submitted for review. Our team will process it within 24 hours and you'll receive a confirmation email once it's complete. Is there anything else I can help with?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2224,
+        -768
+      ],
+      "id": "f110c37e-3866-4bde-9639-84f732764cf2",
+      "name": "Refund Pending Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const amount = $('Match Payment to Order').first().json.amount_display;\nconst description = $('Match Payment to Order').first().json.description;\n\nreturn [{\n  json: {\n    success: true,\n    response: `Your refund has been processed! Here are the details:\\n\\n💰 Amount: ${amount}\\n📋 Order: ${description || 'N/A'}\\n⏱️ Processing Time: 5-7 business days to appear on your statement\\n\\nYou'll receive a confirmation email shortly. Is there anything else I can help with?`,\n    action: 'refund',\n    ticket_id: $('Match Payment to Order').first().json.ticket_id,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2224,
+        -960
+      ],
+      "id": "23e1998b-5bac-4720-b294-64e3ca8e82f5",
+      "name": "Refund Success Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const response = $input.first().json.text || $input.first().json.output;\n  const cleaned = response.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const entities = JSON.parse(cleaned);\n\n  return [{\n    json: {\n      ...entities,\n      ticket_id: $('When Executed by Another Workflow').first().json.ticket_id,\n      message: $('When Executed by Another Workflow').first().json.message,\n      intent: $('When Executed by Another Workflow').first().json.intent,\n      sentiment: $('When Executed by Another Workflow').first().json.sentiment,\n      urgency: $('When Executed by Another Workflow').first().json.urgency,\n    }\n  }];\n} catch (e) {\n  return [{\n    json: {\n      order_id: null,\n      email: null,\n      action_type: \"order_status\",\n      product_mentioned: null,\n      amount_mentioned: null,\n      extraction_error: true,\n      ticket_id: $('When Executed by Another Workflow').first().json.ticket_id,\n      message: $('When Executed by Another Workflow').first().json.message,\n      intent: $('When Executed by Another Workflow').first().json.intent,\n      sentiment: $('When Executed by Another Workflow').first().json.sentiment,\n      urgency: $('When Executed by Another Workflow').first().json.urgency,\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        -864
+      ],
+      "id": "78b88f40-fb4d-428a-85cf-302496b478d0",
+      "name": "Parse Entity JSON"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9d89a238-6737-48cc-bc2a-b73bd08b1e55",
+              "leftValue": "={{ $json.order_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "e59dfa2b-9f05-40b2-bf3e-3b5c132c4524",
+              "leftValue": "={{ $json.order_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "48a1eefe-239f-4d38-87b9-4f6666ae1bf0",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "dda10b2c-01cc-44f5-ade7-cbe1df20b00e",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -16,
+        -864
+      ],
+      "id": "31c2d48d-2963-4135-8272-83d1c2d48837",
+      "name": "Check Missing Entities"
+    },
+    {
+      "parameters": {
+        "url": "https://voltshop-dev.myshopify.com/admin/api/2024-01/orders.json?status=any",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpMultipleHeadersAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        432,
+        -672
+      ],
+      "id": "ab1fe306-2690-4704-b91b-d4b04b8b649c",
+      "name": "Shopify — Verify Order",
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "pv709K3XdJb4J31c",
+          "name": "Multiple Headers Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2b2b979f-9639-4952-9476-5483d25aa681",
+              "name": "response",
+              "value": "I couldn't find that order in our system. Could you please double-check your order number?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1104,
+        -384
+      ],
+      "id": "fc41e4b3-3039-40b4-9d32-287751e2e64b",
+      "name": "Order Not Found Response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "394d15cf-43ec-4c57-aaa0-c2683080f26b",
+              "leftValue": "={{ $json.charge_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1552,
+        -768
+      ],
+      "id": "01ec4840-350d-4adf-8242-d5d95ff8b2ba",
+      "name": "Check Match Found"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "43403c0d-418c-46cc-84c1-128295b35702",
+              "name": "response",
+              "value": "={{ $json.response }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1776,
+        -576
+      ],
+      "id": "1fdfb953-cdd2-4c5b-a54a-6801639005a6",
+      "name": "No Match Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const orders = $input.first().json.orders || [];\nconst targetOrderId = $('Parse Entity JSON').first().json.order_id;\n\nconst matchedOrder = orders.find(order => {\n  const orderName = String(order.name || '').replace('#', '');\n  const orderNumber = String(order.order_number || '');\n  const target = String(targetOrderId).replace('#', '').replace('VS-', '');\n  \n  return orderName === target || orderNumber === target;\n});\n\nif (!matchedOrder) {\n  return [{\n    json: {\n      order_found: false,\n      response: `I couldn't find order #${targetOrderId} in our system. Could you please double-check your order number?`,\n      ticket_id: $('Parse Entity JSON').first().json.ticket_id,\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    order_found: true,\n    order_id: matchedOrder.id,\n    order_number: matchedOrder.order_number || matchedOrder.name,\n    total_price: matchedOrder.total_price,\n    ticket_id: $('Parse Entity JSON').first().json.ticket_id,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        -672
+      ],
+      "id": "5e82703d-b0e4-45a8-9c62-7bc7383dd061",
+      "name": "Verify Order Match"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "11a250a3-f74d-442e-ae61-54483dbed7c2",
+              "leftValue": "={{ $json.order_found }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        -672
+      ],
+      "id": "94dfadc0-c153-46de-83ad-60e963eb36d2",
+      "name": "Order Exists Check"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": ""
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "=application/json",
+        "body": "={{ JSON.stringify({\n  channel: \"C0AG97YAYP2\",\n  text: \"Refund Approval Needed\",\n  blocks: [\n    {\n      type: \"section\",\n      text: {\n        type: \"mrkdwn\",\n        text: `💰 *Refund Approval Needed*\\n\\n*Customer Message:* ${$('When Executed by Another Workflow').first().json.message}\\n\\n*Amount:* ${$('Match Payment to Order').first().json.amount_display}\\n*Order:* ${$('Match Payment to Order').first().json.description}\\n*Charge ID:* ${$('Match Payment to Order').first().json.charge_id}\\n\\nPlease review and process manually in Stripe Dashboard.`\n      }\n    },\n    {\n      type: \"actions\",\n      elements: [\n        {\n          type: \"button\",\n          text: { type: \"plain_text\", text: \"✅ Mark Resolved\" },\n          style: \"primary\",\n          action_id: \"mark_resolved\",\n          value: $('Match Payment to Order').first().json.ticket_id\n        },\n        {\n          type: \"button\",\n          text: { type: \"plain_text\", text: \"🧠 Resolve + Add to KB\" },\n          action_id: \"resolve_add_kb\",\n          value: $('Match Payment to Order').first().json.ticket_id\n        }\n      ]\n    }\n  ]\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2000,
+        -768
+      ],
+      "id": "caee50be-84f7-4a51-b183-c6ab57a08904",
+      "name": "Slack — Request Approval"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/log-ticket",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({   ticket_id: $('When Executed by Another Workflow').first().json.ticket_id ?? '',   channel: $('When Executed by Another Workflow').first().json.channel ?? 'chat',   customer_id: $('When Executed by Another Workflow').first().json.customer_id ?? 'unknown',   message: $('When Executed by Another Workflow').first().json.message ?? '',   intent: \"refund\",   confidence: 5,   grounded: false,   escalated: false,   resolved: true,   resolution_note: \"Refund processed successfully\",   rag_answer: $('Refund Success Response').first().json.response ?? '',   response_ms: $now.toMillis() - $('When Executed by Another Workflow').first().json.start_time }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2448,
+        -960
+      ],
+      "id": "2387087a-362f-41d2-b293-f81ef21bf301",
+      "name": "Log — Refund Success",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/log-ticket",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({   ticket_id: $('When Executed by Another Workflow').first().json.ticket_id ?? '',   channel: $('When Executed by Another Workflow').first().json.channel ?? 'chat',   customer_id: $('When Executed by Another Workflow').first().json.customer_id ?? 'unknown',   message: $('When Executed by Another Workflow').first().json.message ?? '',   intent: \"refund\",   confidence: 5,   grounded: false,   escalated: true,   resolved: false,   resolution_note: null,   rag_answer: $('Refund Pending Response').first().json.response ?? '',   response_ms: $now.toMillis() - $('When Executed by Another Workflow').first().json.start_time }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2448,
+        -768
+      ],
+      "id": "1f095cc5-e1ea-4f96-b681-939cf0fbf6af",
+      "name": "Log — Refund Pending",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/log-ticket",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({   ticket_id: $('When Executed by Another Workflow').first().json.ticket_id ?? '',   channel: $('When Executed by Another Workflow').first().json.channel ?? 'chat',   customer_id: $('When Executed by Another Workflow').first().json.customer_id ?? 'unknown',   message: $('When Executed by Another Workflow').first().json.message ?? '',   intent: \"refund\",   confidence: 1,   grounded: false,   escalated: true,   resolved: false,   resolution_note: null,   rag_answer: $('No Match Response').first().json.response ?? '',   response_ms: $now.toMillis() - $('When Executed by Another Workflow').first().json.start_time }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2224,
+        -576
+      ],
+      "id": "333e0eac-9724-47ef-82ab-3810d4d61834",
+      "name": "Log — No Match",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/log-ticket",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({   ticket_id: $('When Executed by Another Workflow').first().json.ticket_id ?? '',   channel: $('When Executed by Another Workflow').first().json.channel ?? 'chat',   customer_id: $('When Executed by Another Workflow').first().json.customer_id ?? 'unknown',   message: $('When Executed by Another Workflow').first().json.message ?? '',   intent: \"order\",   confidence: 1,   grounded: false,   escalated: true,   resolved: false,   resolution_note: null,   rag_answer: $('Order Not Found Response').first().json.response ?? '',   response_ms: $now.toMillis() - $('When Executed by Another Workflow').first().json.start_time }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1552,
+        -384
+      ],
+      "id": "34248320-c4d8-4a4f-803f-d1387d936beb",
+      "name": "Log — Order Not Found",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": ""
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "=application/json",
+        "body": "={{ JSON.stringify({\n  channel: \"C0AG97YAYP2\",\n  text: \"No Payment Match Found\",\n  blocks: [\n    {\n      type: \"section\",\n      text: {\n        type: \"mrkdwn\",\n        text: `⚠️ *No Payment Match Found*\\n\\n*Customer Message:* ${$('When Executed by Another Workflow').first().json.message}\\n\\n*AI Response:* ${$('No Match Response').first().json.response}\\n\\n*Confidence:* 1/5 | *Grounded:* false`\n      }\n    },\n    {\n      type: \"actions\",\n      elements: [\n        {\n          type: \"button\",\n          text: { type: \"plain_text\", text: \"✅ Mark Resolved\" },\n          style: \"primary\",\n          action_id: \"mark_resolved\",\n          value: $('When Executed by Another Workflow').first().json.ticket_id\n        },\n        {\n          type: \"button\",\n          text: { type: \"plain_text\", text: \"🧠 Resolve + Add to KB\" },\n          action_id: \"resolve_add_kb\",\n          value: $('When Executed by Another Workflow').first().json.ticket_id\n        }\n      ]\n    }\n  ]\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2000,
+        -576
+      ],
+      "id": "8678c575-be36-4fb4-b4d8-a7af8f401634",
+      "name": "Slack — No Match Alert"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": ""
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "=application/json",
+        "body": "={{ JSON.stringify({   channel: \"C0AG97YAYP2\",   text: \"Order Not Found\",   blocks: [     {       type: \"section\",       text: {         type: \"mrkdwn\",         text: `❌ *Order Not Found*\\n\\n*Customer Message:* ${$('When Executed by Another Workflow').first().json.message}\\n\\n*AI Response:* ${$('Order Not Found Response').first().json.response}\\n\\n*Confidence:* 1/5 | *Grounded:* false`       }     },     {       type: \"actions\",       elements: [         {           type: \"button\",           text: { type: \"plain_text\", text: \"✅ Mark Resolved\" },           style: \"primary\",           action_id: \"mark_resolved\",           value: $('When Executed by Another Workflow').first().json.ticket_id         },         {           type: \"button\",           text: { type: \"plain_text\", text: \"🧠 Resolve + Add to KB\" },           action_id: \"resolve_add_kb\",           value: $('When Executed by Another Workflow').first().json.ticket_id         }       ]     }   ] }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1328,
+        -384
+      ],
+      "id": "2e093ef6-0f5c-4207-a9b7-2c1455db769b",
+      "name": "Slack — Order Not Found Alert"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "83232796-30b0-4976-a642-2c75fe600d4d",
+              "name": "output",
+              "value": "={{ $('Refund Success Response').first().json.response }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2672,
+        -960
+      ],
+      "id": "4efcf436-b919-4015-9742-d2d0d07c7522",
+      "name": "Return Output — Refund Success"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "274adfc1-9229-475e-8369-966d25a2171e",
+              "name": "output",
+              "value": "={{ $('Refund Pending Response').first().json.response }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2672,
+        -768
+      ],
+      "id": "3b546e49-2400-4553-b360-f19d7769b310",
+      "name": "Return Output — Refund Pending"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cb8a1c56-96af-438a-a235-31112bb87ec3",
+              "name": "output",
+              "value": "={{ $('No Match Response').first().json.response }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2448,
+        -576
+      ],
+      "id": "b56ec9a3-f728-4237-ba3a-340b3dfc466b",
+      "name": "Return Output — No Match"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "af2891d7-16a9-4bfa-a5e4-2eb637d26580",
+              "name": "output",
+              "value": "={{ $('Order Not Found Response').first().json.response }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1776,
+        -384
+      ],
+      "id": "c8b4e5ed-7f9b-4bc4-8c5b-25377182f8d2",
+      "name": "Return Output — Order Not Found"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Parse Entity JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Action Type": {
+      "main": [
+        [
+          {
+            "node": "Shopify — Get Orders",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Shopify — Verify Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shopify — Get Orders": {
+      "main": [
+        [
+          {
+            "node": "Format Order Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stripe — Get Charges": {
+      "main": [
+        [
+          {
+            "node": "Match Payment to Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Payment to Order": {
+      "main": [
+        [
+          {
+            "node": "Check Match Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refund Threshold Check": {
+      "main": [
+        [
+          {
+            "node": "Stripe — Process Refund",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack — Request Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stripe — Process Refund": {
+      "main": [
+        [
+          {
+            "node": "Refund Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Entity JSON": {
+      "main": [
+        [
+          {
+            "node": "Check Missing Entities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Missing Entities": {
+      "main": [
+        [
+          {
+            "node": "Ask Customer for Details",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route by Action Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shopify — Verify Order": {
+      "main": [
+        [
+          {
+            "node": "Verify Order Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Match Found": {
+      "main": [
+        [
+          {
+            "node": "Refund Threshold Check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Match Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Order Match": {
+      "main": [
+        [
+          {
+            "node": "Order Exists Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Exists Check": {
+      "main": [
+        [
+          {
+            "node": "Stripe — Get Charges",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Order Not Found Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack — Request Approval": {
+      "main": [
+        [
+          {
+            "node": "Refund Pending Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refund Success Response": {
+      "main": [
+        [
+          {
+            "node": "Log — Refund Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refund Pending Response": {
+      "main": [
+        [
+          {
+            "node": "Log — Refund Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Match Response": {
+      "main": [
+        [
+          {
+            "node": "Slack — No Match Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Not Found Response": {
+      "main": [
+        [
+          {
+            "node": "Slack — Order Not Found Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack — No Match Alert": {
+      "main": [
+        [
+          {
+            "node": "Log — No Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack — Order Not Found Alert": {
+      "main": [
+        [
+          {
+            "node": "Log — Order Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log — Refund Success": {
+      "main": [
+        [
+          {
+            "node": "Return Output — Refund Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log — Refund Pending": {
+      "main": [
+        [
+          {
+            "node": "Return Output — Refund Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log — No Match": {
+      "main": [
+        [
+          {
+            "node": "Return Output — No Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log — Order Not Found": {
+      "main": [
+        [
+          {
+            "node": "Return Output — Order Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "ef02f279-9fc6-4089-9e22-19c6cc5dedab",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3aa5d05bd944b1a046a965028417fe45892f642260fb797fac57ae0d5403a374"
+  },
+  "id": "O52AbpTyGoEiayCv",
+  "tags": []
+}

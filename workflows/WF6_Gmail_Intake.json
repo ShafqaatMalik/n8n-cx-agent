@@ -1,0 +1,227 @@
+{
+  "name": "WF6 — Gmail Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "labelIds": [
+            "Label_9140564022819407932"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "6a2ef1b4-f46c-46f7-9bc5-765ea04f035c",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "4yibTJVIZEC3wL2W",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f7ad152a-4ab2-4063-a364-e455c88b7d00",
+              "name": "chatInput",
+              "value": "={{ $json.snippet }}",
+              "type": "string"
+            },
+            {
+              "id": "785284f7-991e-4b20-b680-4c737e8a877d",
+              "name": "channel",
+              "value": "email",
+              "type": "string"
+            },
+            {
+              "id": "3f71c4b3-1c82-445e-a22d-3c9e6204cf2b",
+              "name": "=customer_id",
+              "value": "={{ $json.From || $json.from || $json['from'] || 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "324bc68d-6add-4d69-89de-137f8d3f86a2",
+              "name": "subject",
+              "value": "={{ $json.subject }}",
+              "type": "string"
+            },
+            {
+              "id": "6ef7cf0a-6694-44b7-916d-025bcdc81de0",
+              "name": "thread_id",
+              "value": "={{ $json.threadId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        416,
+        -80
+      ],
+      "id": "a1594bbb-3d24-4d9c-b130-4ca0c4ce1b48",
+      "name": "Normalize Email Input"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "7F8qDUdtvBXEBC0j",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/7F8qDUdtvBXEBC0j",
+          "cachedResultName": "WF4 — RAG Resolution"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        592,
+        -80
+      ],
+      "id": "235614a8-438a-4ffb-9075-bf4f302e4539",
+      "name": "Call 'WF4 — RAG Resolution'"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Normalize Email Input').first().json.customer_id }}",
+        "subject": "=Re: {{ $('Gmail Trigger').first().json.Subject }}",
+        "emailType": "text",
+        "message": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        768,
+        -80
+      ],
+      "id": "cef4f387-ff02-4dca-8247-81e3ac0d3df3",
+      "name": "Send Gmail Reply",
+      "webhookId": "dcaec1bf-96b7-4b6e-93a8-53ad82c21e00",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "4yibTJVIZEC3wL2W",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4ca0d6a2-57fb-4c18-941a-0f59ad82aee1",
+              "leftValue": "={{ $json.From }}",
+              "rightValue": "mweawan@gmail.com",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        208,
+        0
+      ],
+      "id": "f1b440a2-32ba-4970-b62d-cf65e7aa0471",
+      "name": "Filter Sender"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter Sender",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Email Input": {
+      "main": [
+        [
+          {
+            "node": "Call 'WF4 — RAG Resolution'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'WF4 — RAG Resolution'": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Sender": {
+      "main": [
+        [
+          {
+            "node": "Normalize Email Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "65fb6f34-3e40-470c-9c32-3f20d5e97bd2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3aa5d05bd944b1a046a965028417fe45892f642260fb797fac57ae0d5403a374"
+  },
+  "id": "qFkPHX64p0OMowgG",
+  "tags": []
+}

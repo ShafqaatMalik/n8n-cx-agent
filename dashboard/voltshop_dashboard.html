@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>VoltShop CX — Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:system-ui,-apple-system,sans-serif;background:#080f1a;color:#f1f5f9;min-height:100vh}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#1a2744;border-radius:2px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const {useState}=React;
+const h=React.createElement;
+const C={
+  bg:"#080f1a",card:"#0d1526",border:"#1a2744",
+  text:"#f1f5f9",muted:"#5a7099",
+  green:"#4ade80",red:"#f87171",blue:"#60a5fa",
+  amber:"#fbbf24",teal:"#2dd4bf",purple:"#a78bfa",
+  coral:"#fb923c"
+};
+const SUPABASE="https://yuucyvefubdwsqvevyen.supabase.co";
+
+function pct(n,d){return d>0?Math.round(n/d*100):0}
+function fmtMs(ms){if(!ms||ms<=0)return"—";return ms<1000?Math.round(ms)+"ms":(ms/1000).toFixed(1)+"s"}
+function calcP(arr,p){if(!arr.length)return 0;return arr[Math.min(arr.length-1,Math.ceil(arr.length*(p/100))-1)];}
+
+function processData(rows){
+  if(!rows||!rows.length)return null;
+  const total=rows.length;
+  const esc=rows.filter(r=>r.escalated && r.source!=='wf3');
+  const auto=rows.filter(r=>!r.escalated);
+  const escRes=esc.filter(r=>r.resolved);
+
+  // grounding
+  const grounded=rows.filter(r=>r.grounded===true);
+  const groundingRate=pct(grounded.length,total);
+
+  const withConf=rows.filter(r=>r.confidence!=null&&r.confidence>0);
+  const isDecimalScale=withConf.length>0&&withConf.every(r=>r.confidence<=1);
+
+  const ms=rows.filter(r=>r.response_ms>0).map(r=>r.response_ms).sort((a,b)=>a-b);
+  const avgMs=ms.length?Math.round(ms.reduce((s,v)=>s+v,0)/ms.length):0;
+  const medianMs=ms.length?calcP(ms,50):0;
+  const p95Ms=ms.length?calcP(ms,95):0;
+
+  const dm={};
+  rows.forEach(r=>{if(!r.created_at)return;const d=r.created_at.slice(0,10);dm[d]=(dm[d]||0)+1;});
+  const timeline=Object.entries(dm).sort(([a],[b])=>a>b?1:-1).map(([dt,c])=>{const[,m,d]=dt.split("-");return{label:`${m}/${d}`,v:c};});
+
+  const cm={};
+  rows.forEach(r=>{const ch=(r.channel||"other").toLowerCase();if(ch==="web_chat")return;if(!cm[ch])cm[ch]={name:ch.charAt(0).toUpperCase()+ch.slice(1),total:0,esc:0};cm[ch].total++;if(r.escalated)cm[ch].esc++;});
+
+  /// intents — include grounded breakdown
+  const im={};
+  esc.forEach(r=>{
+    const k=r.intent||"Unclassified";
+    if(!im[k])im[k]={intent:k,count:0,groundedCount:0,sample:r.message||"",cSum:0,cN:0};
+    im[k].count++;
+    if(r.grounded===true)im[k].groundedCount++;
+    if(r.confidence!=null){im[k].cSum+=r.confidence;im[k].cN++;}
+  });
+  const topEsc=Object.values(im)
+    .map(i=>({...i,avgConf:i.cN>0?Math.round(((i.cSum/i.cN)-1)/(5-1)*100)+"%":"—"}))
+    .sort((a,b)=>b.count-a.count).slice(0,8);
+
+  // ── WF3 Transactional Analytics ──────────────────────────────────────────
+  const wf3=rows.filter(r=>r.source==='wf3');
+  const wf3Success=wf3.filter(r=>r.route==='refund_success');
+  const wf3Pending=wf3.filter(r=>r.route==='refund_pending');
+  const wf3NoMatch=wf3.filter(r=>r.route==='no_match');
+  const wf3NotFound=wf3.filter(r=>r.route==='order_not_found');
+  const wf3SuccessRate=pct(wf3Success.length,wf3.length);
+  const wf3PendingRate=pct(wf3Pending.length,wf3.length);
+
+  return{total,escCount:esc.length,autoCount:auto.length,escResCount:escRes.length,
+    groundingRate,avgMs,medianMs,p95Ms,timeline,channels:Object.values(cm),topEsc,
+    wf3Total:wf3.length,wf3Success:wf3Success.length,wf3Pending:wf3Pending.length,
+    wf3NoMatch:wf3NoMatch.length,wf3NotFound:wf3NotFound.length,
+    wf3SuccessRate,wf3PendingRate};
+}
+
+// ── Primitives ────────────────────────────────────────────────────────────────
+function Card({children,style}){
+  return h("div",{style:{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"16px 20px",...style}},children);
+}
+function SL({children,right}){
+  return h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
+    h("span",{style:{fontSize:11,fontWeight:600,letterSpacing:".08em",textTransform:"uppercase",color:C.muted}},children),
+    right&&h("span",{style:{fontSize:11,color:C.muted}},right)
+  );
+}
+function Badge({label,bg,color}){
+  return h("span",{style:{fontSize:11,fontWeight:600,padding:"2px 9px",borderRadius:12,background:bg,color}},label);
+}
+
+// ── ROW 1 stat pill ───────────────────────────────────────────────────────────
+function StatPill({label,value,color,tag,tagBg,tagColor,dimLabel}){
+  return h("div",{style:{background:"#0a1220",border:`1px solid ${C.border}`,borderRadius:10,
+    padding:"14px 18px",flex:1,minWidth:0}},
+    h("div",{style:{fontSize:11,fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",
+      color:C.muted,marginBottom:7}},label),
+    h("div",{style:{display:"flex",alignItems:"baseline",gap:8,flexWrap:"wrap"}},
+      h("span",{style:{fontSize:30,fontWeight:700,color:color||C.text,
+        fontVariantNumeric:"tabular-nums",lineHeight:1}},value),
+      tag&&h(Badge,{label:tag,bg:tagBg||C.border,color:tagColor||"#94a3b8"})
+    ),
+    dimLabel&&h("div",{style:{fontSize:10,color:C.muted,marginTop:5}},dimLabel)
+  );
+}
+
+// ── ROW 2 latency stat card ───────────────────────────────────────────────────
+function LatStat({label,value,color,sub}){
+  return h("div",{style:{background:"#0a1220",border:`1px solid ${C.border}`,borderRadius:10,
+    padding:"20px 24px",display:"flex",flexDirection:"column",gap:6}},
+    h("div",{style:{fontSize:11,fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",color:C.muted}},label),
+    h("div",{style:{fontSize:36,fontWeight:700,color,fontVariantNumeric:"tabular-nums",lineHeight:1.1}},value),
+    h("div",{style:{fontSize:11,color:C.muted}},sub)
+  );
+}
+
+// ── ROW 2 latency bars ────────────────────────────────────────────────────────
+function LatencyBars({avgMs,medianMs,p95Ms}){
+  const items=[
+    {label:"Avg",value:avgMs,color:C.amber},
+    {label:"P50",value:medianMs,color:C.teal},
+    {label:"P95",value:p95Ms,color:C.purple},
+  ];
+  const maxV=Math.max(avgMs,medianMs,p95Ms,1);
+  return h("div",{style:{display:"flex",flexDirection:"column",gap:16}},
+    items.map((item,i)=>
+      h("div",{key:i},
+        h("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:5}},
+          h("span",{style:{fontSize:12,color:C.muted,fontWeight:500}},item.label),
+          h("span",{style:{fontSize:13,fontWeight:700,color:item.color,fontFamily:"monospace"}},fmtMs(item.value))
+        ),
+        h("div",{style:{height:9,background:"#1a2744",borderRadius:4,overflow:"hidden"}},
+          h("div",{style:{height:"100%",width:Math.round(item.value/maxV*55)+"%",
+            background:item.color,borderRadius:4,opacity:.9}})
+        )
+      )
+    )
+  );
+}
+
+// ── ROW 3 donut ───────────────────────────────────────────────────────────────
+function Donut({auto,total}){
+  if(!total)return h("div",{style:{textAlign:"center",padding:"20px 0",color:C.muted}},"No data");
+  const R=62,cx=74,cy=74,circ=2*Math.PI*R;
+  const autoPct=auto/total,escPct=1-autoPct;
+  return h("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:16}},
+    h("svg",{viewBox:"0 0 148 148",width:148,height:148},
+      h("circle",{cx,cy,r:R,fill:"none",stroke:"#1a2744",strokeWidth:22}),
+      escPct>0&&h("circle",{cx,cy,r:R,fill:"none",stroke:C.red,strokeWidth:22,
+        strokeDasharray:`${circ*escPct} ${circ}`,transform:`rotate(-90 ${cx} ${cy})`}),
+      autoPct>0&&h("circle",{cx,cy,r:R,fill:"none",stroke:C.green,strokeWidth:22,
+        strokeDasharray:`${circ*autoPct} ${circ}`,strokeDashoffset:`${-circ*escPct}`,
+        transform:`rotate(-90 ${cx} ${cy})`}),
+      h("text",{x:cx,y:cy-7,textAnchor:"middle",fontSize:22,fontWeight:700,fill:C.text},pct(auto,total)+"%"),
+      h("text",{x:cx,y:cy+12,textAnchor:"middle",fontSize:11,fill:C.muted},"auto-res.")
+    ),
+    h("div",{style:{display:"flex",flexDirection:"column",gap:10,width:"100%"}},
+      h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:14}},
+        h("div",{style:{display:"flex",alignItems:"center",gap:7}},
+          h("span",{style:{width:10,height:10,borderRadius:2,background:C.green,flexShrink:0}}),
+          h("span",{style:{color:C.muted}},"Auto-Resolved")
+        ),
+        h("span",{style:{color:C.text,fontWeight:700}},auto)
+      ),
+      h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:14}},
+        h("div",{style:{display:"flex",alignItems:"center",gap:7}},
+          h("span",{style:{width:10,height:10,borderRadius:2,background:C.red,flexShrink:0}}),
+          h("span",{style:{color:C.muted}},"Escalated")
+        ),
+        h("span",{style:{color:C.text,fontWeight:700}},total-auto)
+      )
+    )
+  );
+}
+
+// ── ROW 3 channel bars ────────────────────────────────────────────────────────
+function ChannelBars({channels}){
+  if(!channels.length)return h("div",{style:{color:C.muted,fontSize:12}},"No data");
+  const maxV=Math.max(...channels.map(c=>c.total),1);
+  const H=Math.max(130,channels.length*58);
+  const W=290,pl=62,pr=14,pt=8,pb=32,iW=W-pl-pr,iH=H-pt-pb;
+  const slotH=iH/channels.length,bh=Math.min(17,slotH*0.40);
+  const ticks=[0,Math.round(maxV/2),maxV];
+  return h("div",null,
+    h("div",{style:{display:"flex",gap:14,marginBottom:12}},
+      h("span",{style:{display:"flex",alignItems:"center",gap:5,fontSize:12,color:C.muted}},
+        h("span",{style:{width:9,height:9,borderRadius:2,background:C.blue,flexShrink:0}}),"Total"),
+      h("span",{style:{display:"flex",alignItems:"center",gap:5,fontSize:12,color:C.muted}},
+        h("span",{style:{width:9,height:9,borderRadius:2,background:C.amber,flexShrink:0}}),"Escalated")
+    ),
+    h("svg",{viewBox:`0 0 ${W} ${H}`,width:"100%",height:H},
+      ticks.map((val,i)=>{
+        const x=pl+iW*(val/maxV);
+        return h("g",{key:i},
+          h("line",{x1:x,x2:x,y1:pt,y2:pt+iH,stroke:"#243350",strokeWidth:0.8}),
+          h("text",{x,y:H-6,textAnchor:"middle",fontSize:12,fontWeight:600,fill:"#7a9abd"},val)
+        );
+      }),
+      channels.map((ch,i)=>{
+        const cy2=pt+i*slotH+slotH/2;
+        const tw=Math.max(iW*(ch.total/maxV),2);
+        const ew=ch.esc>0?Math.max(iW*(ch.esc/maxV),2):0;
+        return h("g",{key:i},
+          h("text",{x:pl-8,y:cy2,textAnchor:"end",dominantBaseline:"middle",
+            fontSize:13,fontWeight:600,fill:"#8eadd4"},ch.name),
+          h("rect",{x:pl,y:cy2-bh-1,width:tw,height:bh,fill:C.blue,rx:2}),
+          ew>0&&h("rect",{x:pl,y:cy2+1,width:ew,height:bh,fill:C.amber,rx:2})
+        );
+      })
+    )
+  );
+}
+
+// ── ROW 3 line chart ──────────────────────────────────────────────────────────
+function LineChart({timeline}){
+  if(!timeline.length)return h("div",{style:{textAlign:"center",padding:"20px 0",color:C.muted,fontSize:12}},"No data");
+  const W=360,H=155,pl=36,pr=12,pt=8,pb=36,iW=W-pl-pr,iH=H-pt-pb;
+  const maxV=Math.max(...timeline.map(t=>t.v),1);
+  const n=timeline.length;
+  const pts=timeline.map((t,i)=>({
+    x:pl+(n===1?iW/2:i/(n-1)*iW),
+    y:pt+iH*(1-t.v/maxV),label:t.label,v:t.v
+  }));
+  const poly=pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const area=`M${pts[0].x},${pt+iH} `+pts.map(p=>`L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")+` L${pts[pts.length-1].x},${pt+iH}Z`;
+  const every=Math.max(1,Math.ceil(n/6));
+  const yTicks=[0,Math.round(maxV/2),maxV];
+  return h("svg",{viewBox:`0 0 ${W} ${H}`,width:"100%",height:H},
+    yTicks.map((val,i)=>{
+      const y=pt+iH*(1-val/maxV);
+      return h("g",{key:i},
+        h("line",{x1:pl,x2:pl+iW,y1:y,y2:y,stroke:"#243350",strokeWidth:0.7}),
+        h("text",{x:pl-6,y,textAnchor:"end",dominantBaseline:"middle",
+          fontSize:12,fontWeight:600,fill:"#7a9abd"},val)
+      );
+    }),
+    h("path",{d:area,fill:C.teal,opacity:0.1}),
+    h("polyline",{points:poly,fill:"none",stroke:C.teal,strokeWidth:2.5,strokeLinejoin:"round"}),
+    pts.map((p,i)=>h("g",{key:i},
+      h("circle",{cx:p.x,cy:p.y,r:3,fill:C.teal}),
+      i%every===0&&h("text",{x:p.x,y:H-6,textAnchor:"middle",
+        fontSize:11,fontWeight:600,fill:"#7a9abd"},p.label)
+      ))
+    )
+ ; 
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function Dashboard({d}){
+  const autoRate=pct(d.autoCount,d.total);
+  const escRate=pct(d.escCount,d.total);
+  const escResRate=pct(d.escResCount,d.escCount);
+  const maxEsc=d.topEsc[0]?.count||1;
+  const p95Tc=d.p95Ms>5000?{bg:"#450a0a",c:C.red}:d.p95Ms>2000?{bg:"#431407",c:C.amber}:{bg:"#052e16",c:C.green};
+
+  // grounding colour logic
+  const grTag=d.groundingRate>=85?"Strong":d.groundingRate>=70?"Moderate":"Low";
+  const grTc=d.groundingRate>=85?{bg:"#052e16",c:C.green}:d.groundingRate>=70?{bg:"#431407",c:C.amber}:{bg:"#450a0a",c:C.red};
+
+  return h("div",{style:{display:"flex",flexDirection:"column",gap:12}},
+
+    // ══ ROW 1: 5 pills ════════════════════════════════════════════════════════
+    h("div",{style:{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:8}},
+      h(StatPill,{label:"Total Tickets",value:d.total.toLocaleString(),
+        tag:"Live",tagBg:"#0c1a2e",tagColor:C.blue}),
+      h(StatPill,{label:"Auto-Resolve",value:autoRate+"%",color:autoRate>=70?C.green:C.amber,
+        tag:autoRate>=70?"Healthy":"Low",tagBg:autoRate>=70?"#052e16":"#431407",tagColor:autoRate>=70?C.green:C.amber}),
+      h(StatPill,{label:"Escalations",value:d.escCount,color:C.red,
+        tag:escRate+"% of total",tagBg:"#450a0a",tagColor:C.red}),
+      h(StatPill,{label:"Esc. Resolution",value:escResRate+"%",color:escResRate>=70?C.green:C.red,
+        tag:escResRate>=70?"High":"Low",tagBg:escResRate>=70?"#052e16":"#450a0a",tagColor:escResRate>=70?C.green:C.red}),
+      h(StatPill,{label:"Grounding Rate",value:d.groundingRate+"%",color:grTc.c,
+        tag:grTag,tagBg:grTc.bg,tagColor:grTc.c,
+        dimLabel:"KB-grounded answers"})
+    ),
+
+    // ══ ROW 2 ═════════════════════════════════════════════════════════════════
+    h(Card,{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1.2fr",gap:20,alignItems:"center"}},
+      h(LatStat,{label:"Average",      value:fmtMs(d.avgMs),    color:C.amber, sub:"Mean — skewed by outliers"}),
+      h(LatStat,{label:"Median (P50)", value:fmtMs(d.medianMs), color:C.teal,  sub:"Typical user experience"}),
+      h(LatStat,{label:"P95 Latency",  value:fmtMs(d.p95Ms),    color:p95Tc.c, sub:"Worst 5% of users"}),
+      h("div",null,
+        h(SL,null,"Response Time Breakdown"),
+        h(LatencyBars,{avgMs:d.avgMs,medianMs:d.medianMs,p95Ms:d.p95Ms})
+      )
+    ),
+
+    // ══ ROW 3 ═════════════════════════════════════════════════════════════════
+    h("div",{style:{display:"grid",gridTemplateColumns:"280px 320px 1fr",gap:10}},
+      h(Card,null,
+        h(SL,{right:`${d.total} total`},"Resolve vs Escalation"),
+        h(Donut,{auto:d.autoCount,total:d.total})
+      ),
+      h(Card,null,
+        h(SL,null,"Channel Breakdown"),
+        h(ChannelBars,{channels:d.channels})
+      ),
+      h(Card,null,
+        h(SL,{right:d.timeline.length+" days"},"Ticket Volume Over Time"),
+        h(LineChart,{timeline:d.timeline})
+      )
+    ),
+
+// ══ ROW 4 — failure table with Grounded column ════════════════════════════
+    h(Card,null,
+      h(SL,{right:h(Badge,{label:d.escCount+" escalations",bg:"#450a0a",color:C.red})},"AI Failure Points — Top Escalated Intents"),
+      d.topEsc.length===0
+        ?h("div",{style:{textAlign:"center",padding:"24px 0",color:C.muted,fontSize:14}},"No escalated tickets")
+        :h("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:15}},
+            h("thead",null,h("tr",null,
+              ["#","Intent","Count","Grounded","Avg Conf","Sample Message"].map(col=>
+                h("th",{key:col,style:{fontSize:12,fontWeight:700,letterSpacing:".05em",
+                  textTransform:"uppercase",color:"#7a9abd",
+                  padding:"0 12px 11px",textAlign:"left",
+                  borderBottom:`1px solid ${C.border}`}},col))
+            )),
+            h("tbody",null,d.topEsc.map((row,i)=>{
+              const allGrounded=row.groundedCount===row.count;
+              const noneGrounded=row.groundedCount===0;
+              const groundedColor=allGrounded?C.green:noneGrounded?C.red:C.amber;
+              const groundedBg=allGrounded?"#052e16":noneGrounded?"#450a0a":"#431407";
+              const groundedLabel=allGrounded?"KB answered":noneGrounded?"No KB match":`${row.groundedCount}/${row.count}`;
+              return h("tr",{key:i,style:{borderBottom:`1px solid ${C.border}`}},
+                h("td",{style:{padding:"11px 12px",color:C.muted,fontFamily:"monospace",fontSize:13}},String(i+1).padStart(2,"0")),
+                h("td",{style:{padding:"11px 12px",fontWeight:700,color:C.text,fontSize:15}},row.intent),
+                h("td",{style:{padding:"11px 12px"}},
+                  h("div",{style:{display:"flex",alignItems:"center",gap:8}},
+                    h("div",{style:{width:Math.round(row.count/maxEsc*55),height:6,borderRadius:3,background:C.red,opacity:.8}}),
+                    h("span",{style:{fontFamily:"monospace",color:C.red,fontWeight:700,fontSize:15}},row.count))),
+                h("td",{style:{padding:"11px 12px"}},
+                  h("span",{style:{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:12,
+                    background:groundedBg,color:groundedColor}},groundedLabel)),
+                h("td",{style:{padding:"11px 12px",fontFamily:"monospace",color:C.amber,fontSize:15,fontWeight:600}},row.avgConf),
+                h("td",{style:{padding:"11px 12px",color:"#8eadd4",fontSize:14,
+                  maxWidth:380,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},row.sample||"—"));
+            }))
+          )
+    ),
+
+    // ══ ROW 5 — WF3 Transactional Analytics ══════════════════════════════════
+    d.wf3Total>0&&h(Card,null,
+      h(SL,{right:h(Badge,{label:d.wf3Total+" transactions",bg:"#0c1a2e",color:"#378ADD"})},"WF3 — Transactional Layer"),
+      h("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}},
+        h("div",{style:{background:"#0c1a2e",borderRadius:10,padding:"14px 16px",border:"1px solid #1e3a5f"}},
+          h("div",{style:{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#7a9abd",marginBottom:6}},"Total Requests"),
+          h("div",{style:{fontSize:28,fontWeight:800,color:C.text,fontFamily:"monospace"}},d.wf3Total)),
+        h("div",{style:{background:"#0c1a2e",borderRadius:10,padding:"14px 16px",border:"1px solid #1e3a5f"}},
+          h("div",{style:{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#7a9abd",marginBottom:6}},"Auto Processed"),
+          h("div",{style:{fontSize:28,fontWeight:800,color:C.green,fontFamily:"monospace"}},d.wf3SuccessRate+"%")),
+        h("div",{style:{background:"#0c1a2e",borderRadius:10,padding:"14px 16px",border:"1px solid #1e3a5f"}},
+          h("div",{style:{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#7a9abd",marginBottom:6}},"Pending Approval"),
+          h("div",{style:{fontSize:28,fontWeight:800,color:C.amber,fontFamily:"monospace"}},d.wf3PendingRate+"%")),
+        h("div",{style:{background:"#0c1a2e",borderRadius:10,padding:"14px 16px",border:"1px solid #1e3a5f"}},
+          h("div",{style:{fontSize:11,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"#7a9abd",marginBottom:6}},"Unresolved"),
+          h("div",{style:{fontSize:28,fontWeight:800,color:C.red,fontFamily:"monospace"}},d.wf3NoMatch+d.wf3NotFound))
+      ),
+      h("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:14}},
+        h("thead",null,h("tr",null,
+          ["Route","Count","Rate"].map(col=>
+            h("th",{key:col,style:{fontSize:12,fontWeight:700,letterSpacing:".05em",
+              textTransform:"uppercase",color:"#7a9abd",
+              padding:"0 12px 11px",textAlign:"left",
+              borderBottom:`1px solid ${C.border}`}},col))
+        )),
+        h("tbody",null,
+          [{label:"Refund Success",count:d.wf3Success,color:C.green,bg:"#052e16"},
+           {label:"Refund Pending",count:d.wf3Pending,color:C.amber,bg:"#431407"},
+           {label:"No Match",count:d.wf3NoMatch,color:C.red,bg:"#450a0a"},
+           {label:"Order Not Found",count:d.wf3NotFound,color:C.red,bg:"#450a0a"}
+          ].map((row,i)=>
+            h("tr",{key:i,style:{borderBottom:`1px solid ${C.border}`}},
+              h("td",{style:{padding:"11px 12px",fontWeight:600,color:C.text}},row.label),
+              h("td",{style:{padding:"11px 12px",fontFamily:"monospace",fontWeight:700,color:row.color}},row.count),
+              h("td",{style:{padding:"11px 12px"}},
+                h("span",{style:{fontSize:12,fontWeight:700,padding:"3px 10px",borderRadius:12,
+                  background:row.bg,color:row.color}},
+                  d.wf3Total>0?Math.round(row.count/d.wf3Total*100)+"%":"—")))
+          )
+        )
+      )
+    )
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App(){
+  const[key,setKey]=useState("");
+  const[loading,setLoading]=useState(false);
+  const[error,setError]=useState(null);
+  const[data,setData]=useState(null);
+  const[connKey,setConnKey]=useState("");
+  const[fetched,setFetched]=useState(null);
+
+  async function load(k){
+    setLoading(true);setError(null);
+    try{
+      const res=await fetch(
+        `${SUPABASE}/rest/v1/support_logs?select=*&order=created_at.asc&limit=10000`,
+        {headers:{apikey:k,Authorization:`Bearer ${k}`}}
+      );
+      if(!res.ok){const t=await res.text();throw new Error(`HTTP ${res.status} — ${t.slice(0,200)}`);}
+      const rows=await res.json();
+      if(!Array.isArray(rows))throw new Error("Unexpected response from Supabase");
+      setData(processData(rows));setConnKey(k);setFetched(new Date());
+    }catch(e){setError(e.message);}
+    setLoading(false);
+  }
+
+  return h("div",{style:{minHeight:"100vh",background:C.bg,padding:"14px 20px 16px"}},
+    // Header
+    h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",
+      marginBottom:14,paddingBottom:12,borderBottom:`1px solid ${C.border}`}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:12}},
+        h("div",{style:{width:32,height:32,borderRadius:8,background:"#0c1a2e",
+          border:`1px solid ${C.border}`,display:"flex",alignItems:"center",
+          justifyContent:"center",fontSize:18}},"⚡"),
+        h("span",{style:{fontSize:16,fontWeight:700,color:C.text,letterSpacing:"-.01em"}},"VoltShop CX  "),
+        h("span",{style:{fontSize:11,color:C.muted,letterSpacing:".08em",textTransform:"uppercase",
+          verticalAlign:"middle"}},"Analytics Dashboard")
+      ),
+      h("div",{style:{display:"flex",alignItems:"center",gap:10}},
+        fetched&&h("span",{style:{fontSize:12,color:C.muted}},"Updated "+fetched.toLocaleTimeString()),
+        connKey&&h("button",{onClick:()=>load(connKey),disabled:loading,
+          style:{padding:"5px 14px",borderRadius:7,fontSize:12,fontWeight:600,cursor:"pointer",
+            border:"none",background:"#1d4ed8",color:"#fff",opacity:loading?.4:1,fontFamily:"inherit"}},
+          loading?"…":"↻ Refresh"),
+        connKey&&h("button",{onClick:()=>{setConnKey("");setData(null);setKey("");},
+          style:{padding:"5px 14px",borderRadius:7,fontSize:12,cursor:"pointer",
+            border:`1px solid ${C.border}`,background:C.card,color:"#94a3b8",fontFamily:"inherit"}},
+          "Disconnect"),
+        h("div",{style:{display:"flex",alignItems:"center",gap:6,fontSize:12,fontWeight:600,
+          padding:"4px 12px",borderRadius:16,
+          background:connKey?"#052e16":C.border,color:connKey?C.green:"#94a3b8"}},
+          h("span",{style:{width:7,height:7,borderRadius:"50%",background:connKey?C.green:C.muted}}),
+          connKey?"Connected":"Disconnected"
+        )
+      )
+    ),
+
+    // Connect panel
+    !connKey&&h("div",{style:{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,
+      padding:18,marginBottom:14,maxWidth:520}},
+      h("div",{style:{fontSize:13,fontWeight:600,color:"#94a3b8",marginBottom:10}},"Supabase anon key"),
+      h("div",{style:{display:"flex",gap:8}},
+        h("input",{type:"password",value:key,
+          placeholder:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+          onChange:e=>setKey(e.target.value),
+          onKeyDown:e=>e.key==="Enter"&&key.trim()&&load(key.trim()),
+          style:{flex:1,background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,
+            padding:"9px 14px",fontSize:13,color:C.text,outline:"none",fontFamily:"monospace"}}),
+        h("button",{disabled:loading||!key.trim(),onClick:()=>load(key.trim()),
+          style:{padding:"9px 20px",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer",
+            border:"none",background:"#1d4ed8",color:"#fff",
+            opacity:loading||!key.trim()?0.4:1,whiteSpace:"nowrap",fontFamily:"inherit"}},
+          loading?"Connecting…":"Connect →")
+      )
+    ),
+
+    error&&h("div",{style:{background:"#450a0a",border:"1px solid #7f1d1d",borderRadius:9,
+      padding:"10px 16px",color:C.red,fontSize:13,marginBottom:12}},"⚠ ",error),
+    loading&&!data&&h("div",{style:{textAlign:"center",padding:"80px 0",color:C.muted,fontSize:14}},"Fetching support data…"),
+    !loading&&connKey&&!data&&!error&&h("div",{style:{textAlign:"center",padding:"80px 0",color:C.muted,fontSize:14}},"No records found"),
+    data&&h(Dashboard,{d:data})
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(h(App,null));
+</script>
+</body>
+</html>

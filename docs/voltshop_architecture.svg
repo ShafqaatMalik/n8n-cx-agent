@@ -1,0 +1,149 @@
+<svg width="680" height="638" viewBox="0 0 680 638" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', Arial, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <rect width="680" height="638" fill="#ffffff"/>
+
+  <!-- section labels -->
+  <text x="40" y="18" font-size="10" fill="#888780" font-weight="500">entry points</text>
+  <text x="40" y="106" font-size="10" fill="#888780" font-weight="500">channel layer</text>
+  <text x="40" y="214" font-size="10" fill="#888780" font-weight="500">processing</text>
+  <text x="40" y="412" font-size="10" fill="#888780" font-weight="500">infrastructure</text>
+  <text x="40" y="522" font-size="10" fill="#888780" font-weight="500">external services</text>
+
+  <!-- ENTRY POINTS -->
+  <rect x="60" y="22" width="160" height="38" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.5"/>
+  <text x="140" y="41" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#444441">Web chat widget</text>
+
+  <rect x="460" y="22" width="160" height="38" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.5"/>
+  <text x="540" y="41" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#444441">Gmail inbox</text>
+
+  <!-- WF2 — Triage (purple) -->
+  <rect x="40" y="116" width="235" height="54" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+  <text x="157" y="135" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#3C3489">WF2 — Triage</text>
+  <text x="157" y="154" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#534AB7">Webhook · Normalize · Gemini classify</text>
+
+  <!-- WF6 — Gmail Intake (teal) -->
+  <rect x="390" y="116" width="245" height="54" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+  <text x="512" y="135" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#085041">WF6 — Gmail intake</text>
+  <text x="512" y="154" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#0F6E56">Gmail API · normalize · call WF4</text>
+
+  <!-- WF3 — Action Layer (coral) -->
+  <rect x="40" y="224" width="190" height="54" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="0.5"/>
+  <text x="135" y="243" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#712B13">WF3 — Action Layer</text>
+  <text x="135" y="262" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#993C1D">Shopify · Stripe · 4 routes</text>
+
+  <!-- WF4 — RAG Resolution (blue) -->
+  <rect x="450" y="224" width="190" height="54" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+  <text x="545" y="243" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#0C447C">WF4 — RAG Resolution</text>
+  <text x="545" y="262" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#185FA5">Qdrant · Gemini · grounding check</text>
+
+  <!-- Slack (gray pill) -->
+  <rect x="248" y="328" width="152" height="38" rx="19" fill="#F1EFE8" stroke="#888780" stroke-width="0.5"/>
+  <text x="324" y="347" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#444441">Slack</text>
+
+  <!-- WF5 — Feedback Loop (amber) -->
+  <rect x="40" y="422" width="190" height="54" rx="8" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+  <text x="135" y="441" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#633806">WF5 — Feedback Loop</text>
+  <text x="135" y="460" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#854F0B">KB upsert · Qdrant · resolve ticket</text>
+
+  <!-- WF7 — Supabase Logger (amber) -->
+  <rect x="450" y="422" width="190" height="54" rx="8" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+  <text x="545" y="438" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#633806">WF7 — Supabase Logger</text>
+  <text x="545" y="454" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#854F0B">sole DB writer · insert / update</text>
+  <text x="545" y="468" text-anchor="middle" dominant-baseline="central" font-size="10" fill="#BA7517">logs: WF2 · WF3 · WF4 · WF5</text>
+
+  <!-- External services -->
+  <rect x="40" y="532" width="80" height="32" rx="6" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="0.5"/>
+  <text x="80" y="548" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">Shopify</text>
+
+  <rect x="130" y="532" width="80" height="32" rx="6" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="0.5"/>
+  <text x="170" y="548" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">Stripe</text>
+
+  <rect x="220" y="532" width="80" height="32" rx="6" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="0.5"/>
+  <text x="260" y="548" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">Gemini</text>
+
+  <rect x="310" y="532" width="80" height="32" rx="6" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="0.5"/>
+  <text x="350" y="548" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">Qdrant</text>
+
+  <rect x="450" y="532" width="180" height="32" rx="6" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="0.5"/>
+  <text x="540" y="548" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">Supabase · support_logs</text>
+
+  <!-- ===== ARROWS ===== -->
+
+  <!-- 1. WebChat → WF2 -->
+  <path d="M140,60 L140,116" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- 2. Gmail → WF6 -->
+  <path d="M540,60 L540,88 L512,88 L512,116" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- 3. WF2 → WF3 (action, purple) -->
+  <path d="M100,170 L100,196 L135,196 L135,224" fill="none" stroke="#7F77DD" stroke-width="1.5" marker-end="url(#arr)"/>
+  <rect x="62" y="185" width="42" height="16" rx="3" fill="#EEEDFE"/>
+  <text x="83" y="193" text-anchor="middle" dominant-baseline="central" font-size="10" fill="#534AB7">action</text>
+
+  <!-- 4. WF2 → WF4 (RAG, blue) -->
+  <path d="M275,143 L340,143 L340,204 L545,204 L545,224" fill="none" stroke="#378ADD" stroke-width="1.5" marker-end="url(#arr)"/>
+  <rect x="299" y="132" width="28" height="16" rx="3" fill="#E6F1FB"/>
+  <text x="313" y="140" text-anchor="middle" dominant-baseline="central" font-size="10" fill="#185FA5">RAG</text>
+
+  <!-- 5. WF6 → WF4 (teal) -->
+  <path d="M512,170 L512,196 L545,196 L545,224" fill="none" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- 6. WF2 → Slack (escalation, dashed purple) -->
+  <path d="M236,170 L236,308 L248,308 L248,328" fill="none" stroke="#7F77DD" stroke-width="1.2" stroke-dasharray="5 3" marker-end="url(#arr)"/>
+  <rect x="196" y="290" width="56" height="16" rx="3" fill="#ffffff"/>
+  <text x="224" y="298" text-anchor="middle" dominant-baseline="central" font-size="10" fill="#534AB7">escalation</text>
+
+  <!-- 7. WF3 → Slack (coral) -->
+  <path d="M135,278 L135,310 L248,310 L248,340" fill="none" stroke="#D85A30" stroke-width="1.2" marker-end="url(#arr)"/>
+
+  <!-- 8. WF4 → Slack (blue) -->
+  <path d="M545,278 L545,308 L400,308 L400,340" fill="none" stroke="#378ADD" stroke-width="1.2" marker-end="url(#arr)"/>
+
+  <!-- 9. Slack → WF5 (via ngrok, dashed amber) -->
+  <path d="M324,366 L324,396 L135,396 L135,422" fill="none" stroke="#BA7517" stroke-width="1.2" stroke-dasharray="5 3" marker-end="url(#arr)"/>
+  <rect x="280" y="380" width="60" height="16" rx="3" fill="#ffffff"/>
+  <text x="310" y="388" text-anchor="middle" dominant-baseline="central" font-size="10" fill="#854F0B">via ngrok</text>
+
+  <!-- 10. WF5 → WF7 (mark resolved, amber) -->
+  <path d="M230,449 L450,449" fill="none" stroke="#BA7517" stroke-width="1.5" marker-end="url(#arr)"/>
+  <rect x="290" y="438" width="56" height="16" rx="3" fill="#ffffff"/>
+  <text x="318" y="446" text-anchor="middle" dominant-baseline="central" font-size="10" fill="#854F0B">mark resolved</text>
+
+  <!-- 11. WF7 → Supabase -->
+  <path d="M545,476 L545,532" fill="none" stroke="#BA7517" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- WF3 → Shopify+Stripe -->
+  <path d="M135,278 L135,510 L80,510 L80,532" fill="none" stroke="#D3D1C7" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+  <path d="M135,278 L135,510 L170,510 L170,532" fill="none" stroke="#D3D1C7" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+
+  <!-- WF4 → Gemini+Qdrant -->
+  <path d="M545,278 L545,510 L260,510 L260,532" fill="none" stroke="#D3D1C7" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+  <path d="M545,278 L545,510 L350,510 L350,532" fill="none" stroke="#D3D1C7" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+
+  <!-- LEGEND -->
+  <line x1="40" y1="596" x2="640" y2="596" stroke="#E8E6DE" stroke-width="0.5"/>
+  <text x="40" y="612" font-size="10" fill="#888780" font-weight="500">legend</text>
+
+  <rect x="90" y="604" width="12" height="12" rx="2" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+  <text x="108" y="612" font-size="10" fill="#5F5E5A" dominant-baseline="central">triage</text>
+
+  <rect x="160" y="604" width="12" height="12" rx="2" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+  <text x="178" y="612" font-size="10" fill="#5F5E5A" dominant-baseline="central">channel adapter</text>
+
+  <rect x="280" y="604" width="12" height="12" rx="2" fill="#FAECE7" stroke="#993C1D" stroke-width="0.5"/>
+  <text x="298" y="612" font-size="10" fill="#5F5E5A" dominant-baseline="central">action processing</text>
+
+  <rect x="400" y="604" width="12" height="12" rx="2" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+  <text x="418" y="612" font-size="10" fill="#5F5E5A" dominant-baseline="central">RAG resolution</text>
+
+  <rect x="510" y="604" width="12" height="12" rx="2" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+  <text x="528" y="612" font-size="10" fill="#5F5E5A" dominant-baseline="central">infrastructure</text>
+
+  <line x1="40" y1="626" x2="640" y2="626" stroke="#E8E6DE" stroke-width="0.5"/>
+  <text x="40" y="636" font-size="10" fill="#B4B2A9">dashed = Slack callback or escalation path · solid = primary data flow</text>
+</svg>
