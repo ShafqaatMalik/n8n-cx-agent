@@ -2,7 +2,7 @@
 
 > Production-grade, multi-channel AI customer support automation — built with n8n, Qdrant, Google Gemini, Supabase, Slack, Shopify, and Stripe.
 
-![Architecture](./voltshop_architecture.svg)
+![Architecture](docs/voltshop_architecture.svg)
 
 ---
 
