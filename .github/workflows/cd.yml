@@ -76,7 +76,7 @@ jobs:
                   "name": wf_data.get("name", filename),
                   "nodes": wf_data.get("nodes", []),
                   "connections": wf_data.get("connections", {}),
-                  "settings": wf_data.get("settings", {"executionOrder": "v1"}),
+                  "settings": {"executionOrder": wf_data.get("settings", {}).get("executionOrder", "v1")},
                   "staticData": wf_data.get("staticData", None),
               }
 
