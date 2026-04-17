@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-04-17T14:09:48.144305",
+  "test_type": "mixed_realistic",
+  "distribution": "50% RAG | 15% ungrounded | 15% escalation | 10% order_not_found | 10% refund_no_match",
+  "total_tickets": 500,
+  "success": 500,
+  "failed": 0,
+  "success_rate": 100.0,
+  "total_time_seconds": 132.9,
+  "throughput_rps": 3.8,
+  "latency_ms": {
+    "avg": 5190,
+    "p50": 4285,
+    "p95": 9460,
+    "p99": 10268,
+    "min": 2208,
+    "max": 11554
+  },
+  "errors": []
+}

@@ -403,21 +403,32 @@ function App(){
   const[data,setData]=useState(null);
   const[connKey,setConnKey]=useState("");
   const[fetched,setFetched]=useState(null);
-
-  async function load(k){
+async function load(k){
     setLoading(true);setError(null);
     try{
-      const res=await fetch(
-        `${SUPABASE}/rest/v1/support_logs?select=*&order=created_at.asc&limit=10000`,
-        {headers:{apikey:k,Authorization:`Bearer ${k}`}}
-      );
-      if(!res.ok){const t=await res.text();throw new Error(`HTTP ${res.status} — ${t.slice(0,200)}`);}
-      const rows=await res.json();
-      if(!Array.isArray(rows))throw new Error("Unexpected response from Supabase");
-      setData(processData(rows));setConnKey(k);setFetched(new Date());
+      let allData = [];
+      let offset = 0;
+      const batchSize = 1000;
+      
+      while(true){
+        const res = await fetch(
+          `${SUPABASE}/rest/v1/support_logs?select=*&order=created_at.asc&limit=${batchSize}&offset=${offset}`,
+          {headers:{apikey:k, Authorization:`Bearer ${k}`}}
+        );
+        if(!res.ok){const t=await res.text();throw new Error(`HTTP ${res.status} — ${t.slice(0,200)}`);}
+        const batch = await res.json();
+        if(!Array.isArray(batch)) throw new Error("Unexpected response from Supabase");
+        if(!batch.length) break;
+        allData = allData.concat(batch);
+        if(batch.length < batchSize) break;
+        offset += batchSize;
+      }
+      
+      setData(processData(allData));setConnKey(k);setFetched(new Date());
     }catch(e){setError(e.message);}
     setLoading(false);
   }
+
 
   return h("div",{style:{minHeight:"100vh",background:C.bg,padding:"14px 20px 16px"}},
     // Header

@@ -108,7 +108,7 @@ def main():
 
     # --- Connect to Qdrant ---
     print(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
-    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+    client = QdrantClient(url=QDRANT_HOST, api_key=os.getenv("QDRANT_API_KEY", ""))
 
     # --- Create collection (recreate if exists) ---
     collections = [c.name for c in client.get_collections().collections]

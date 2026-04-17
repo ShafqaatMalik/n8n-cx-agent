@@ -1205,9 +1205,8 @@ footer {
 </div>
 
 <script>
-// ── CONFIGURATION ──────────────────────────────────────────────────────────
-const WEBHOOK_URL = 'http://localhost:5678/webhook/ce7fb03a-8189-4574-b0fd-8cb1edbd5b09';
-
+// ── CONFIGURATION ───────────────────────const───────────────────────────────────
+const WEBHOOK_URL = 'https://n8n-production-acb9.up.railway.app/webhook/ce7fb03a-8189-4574-b0fd-8cb1edbd5b09';
 // ── CHAT STATE ─────────────────────────────────────────────────────────────
 let isOpen = false;
 let isTyping = false;
@@ -1285,8 +1284,8 @@ function appendMessage(role, text) {
   msg.className = `msg ${role}`;
 
   // Convert newlines to <br> for bot messages
-  const formatted = role === 'bot'
-    ? text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+const formatted = role === 'bot'
+    ? text.replace(/â€"/g, '–').replace(/â€"/g, '—').replace(/â€˜/g, "'").replace(/â€™/g, "'").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     : text;
 
   msg.innerHTML = `

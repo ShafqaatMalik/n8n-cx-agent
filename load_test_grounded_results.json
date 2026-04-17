@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-04-15T14:37:32.553944",
+  "test_type": "grounded_rag_targeted",
+  "unique_questions": 43,
+  "repeat_each": 23,
+  "total_tickets": 989,
+  "success": 989,
+  "failed": 0,
+  "success_rate": 100.0,
+  "total_time_seconds": 202.0,
+  "throughput_rps": 4.9,
+  "latency_ms": {
+    "avg": 2032,
+    "p50": 1917,
+    "p95": 3245,
+    "p99": 4586,
+    "min": 1372,
+    "max": 5882
+  },
+  "errors": []
+}

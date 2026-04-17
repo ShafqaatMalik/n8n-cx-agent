@@ -27,9 +27,10 @@ Before purchasing, check the product specifications on the product page. For cus
 
 ## What Are Your Working Hours?
 Our customer support team is available:
-- **Monday – Friday:** 9:00 AM – 6:00 PM (EST)
-- **Saturday:** 10:00 AM – 4:00 PM (EST)
-- **Sunday:** Closed
+
+Monday - Friday: 9:00 AM - 6:00 PM (EST)
+Saturday: 10:00 AM - 4:00 PM (EST)
+Sunday: Closed
 
 ## Software Support
 VoltShop provides hardware support only. We do not provide support for third-party software, operating system configuration, or game optimization. For software issues, please contact the software vendor directly.
