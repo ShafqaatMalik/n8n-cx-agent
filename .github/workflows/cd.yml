@@ -1,7 +1,9 @@
 name: CD — Deploy Workflows to Railway n8n
 
 on:
-  workflow_dispatch:  # manual trigger only
+  push:
+    branches: [main]
+  workflow_dispatch:  # keep manual trigger as fallback
 
 jobs:
   deploy:
