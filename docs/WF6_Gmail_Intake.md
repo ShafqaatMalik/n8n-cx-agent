@@ -34,4 +34,4 @@ flowchart TD
 - **Gmail account:** `mweawan+voltshop@gmail.com`, label filter: `voltshop-support` — label must be manually applied to incoming emails or set via Gmail filter rules
 - **WF7 logging is handled inside WF4** — WF6 does not call WF7 directly; logging occurs within WF4 with `channel=email`
 - **If WF4 escalates (grounded=false)** no email reply is sent — the Slack alert from WF4 handles human escalation. Sending an unhelpful auto-reply to the customer is avoided
-- **Known limitation:** WF6 uses a polling trigger which stops when Railway free tier idles the container. Webhook-based workflows (WF2, WF3, WF4, WF5, WF7) are unaffected. Resolution: Railway always-on paid tier or Google Cloud Pub/Sub push notifications
+- **WF6 uses a polling trigger** — polling triggers are sensitive to container restarts. Railway Hobby tier keeps containers always-on, so polling is reliable in the current deployment. On free tier, idle containers would stop polling
