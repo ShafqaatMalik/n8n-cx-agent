@@ -1,0 +1,82 @@
+name: CI — Validate Workflows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate Workflow JSONs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate workflow JSON files
+        run: |
+          echo "Validating workflow JSON files..."
+          failed=0
+          for file in workflows/*.json; do
+            if python3 -c "import json; json.load(open('$file'))" 2>/dev/null; then
+              echo "✓ $file"
+            else
+              echo "✗ $file — invalid JSON"
+              failed=1
+            fi
+          done
+          if [ $failed -eq 1 ]; then
+            echo "One or more workflow JSON files are invalid."
+            exit 1
+          fi
+          echo "All workflow JSON files are valid."
+
+      - name: Check required workflow files exist
+        run: |
+          echo "Checking required workflow files..."
+          required=(
+            "workflows/WF2_Triage.json"
+            "workflows/WF3_Action_Layer.json"
+            "workflows/WF4_RAG_Resolution.json"
+            "workflows/WF5_Feedback_Loop.json"
+            "workflows/WF6_Gmail_Intake.json"
+            "workflows/WF7_Supabase_Logger.json"
+          )
+          failed=0
+          for file in "${required[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✓ $file exists"
+            else
+              echo "✗ $file missing"
+              failed=1
+            fi
+          done
+          if [ $failed -eq 1 ]; then
+            echo "One or more required workflow files are missing."
+            exit 1
+          fi
+          echo "All required workflow files present."
+
+      - name: Check required docs exist
+        run: |
+          echo "Checking documentation files..."
+          required=(
+            "docs/voltshop_architecture.md"
+            "README.md"
+          )
+          failed=0
+          for file in "${required[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✓ $file exists"
+            else
+              echo "✗ $file missing"
+              failed=1
+            fi
+          done
+          if [ $failed -eq 1 ]; then
+            echo "One or more required documentation files are missing."
+            exit 1
+          fi
+          echo "All documentation files present."

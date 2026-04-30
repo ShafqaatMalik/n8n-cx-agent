@@ -1,0 +1,915 @@
+{
+  "name": "WF2 — Triage",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -1168,
+        320
+      ],
+      "id": "31a71612-a910-465a-a4f3-e4e07b8941ff",
+      "name": "When chat message received",
+      "webhookId": "7c1d430a-9067-4c6f-9050-c578ef987e8d"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        32,
+        656
+      ],
+      "id": "9eb79cbb-4f8b-4274-9e64-53d32197f6cf",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "lfuKF8ZZs91HysoW",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3fde9dce-527f-4c94-82b7-5fbd3ac331fd",
+              "name": "output",
+              "value": "I understand your frustration and I'm sorry for the inconvenience. I've immediately escalated your case to our support team. A human agent will reach out to you very shortly.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        752,
+        192
+      ],
+      "id": "1a7e04cc-b777-4cd4-b759-d68957538a3d",
+      "name": "Escalation Response"
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 3,
+        "output": "={{ $json.route === 'escalate' ? 0 : $json.route === 'action' ? 1 : 2 }}\n",
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        528,
+        416
+      ],
+      "id": "d3c266bd-0ffa-4e32-ab5c-7ea9bbdeaaa1",
+      "name": "Route by Classification",
+      "retryOnFail": false,
+      "executeOnce": false,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const response = $input.first().json.text || $input.first().json.output;\n  const cleaned = response.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const classification = JSON.parse(cleaned);\n  \n  // Pre-compute route as a simple string\n  let route = 'rag';  // default\n  if (classification.sentiment === 'angry' && classification.urgency === 'critical') {\n    route = 'escalate';\n  } else if (classification.requires_action === true) {\n    route = 'action';\n  }\n\nreturn [{ json: {\n    ...classification,\nmessage: (() => { try { return $('Webhook').first().json.body.chatInput; } catch(e) { return $('When chat message received').first().json.chatInput; } })(),\nraw_message: (() => { try { return $('Webhook').first().json.body.chatInput; } catch(e) { return $('When chat message received').first().json.chatInput; } })(),\n    route: route\n} }];\n} catch (e) {\n  return [{ json: {\n    intent: \"general\",\n    sentiment: \"neutral\",\n    urgency: \"medium\",\n    requires_action: false,\n    reasoning: \"Classification failed — defaulting to safe route\",\n    raw_message: $('When chat message received').first().json.chatInput,\n    route: \"rag\"\n  }}];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        432
+      ],
+      "id": "39346066-2692-4b05-bc85-d51535494803",
+      "name": "Parse Classification"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Normalize Input').first().json.chatInput }}",
+        "options": {
+          "systemMessage": "You are a customer support classifier for VoltShop, an online electronics store.\n\nAnalyze the customer message and respond ONLY with a JSON object — no other text:\n\n{\n  \"intent\": \"order_status\" | \"refund_request\" | \"product_question\" | \"complaint\" | \"general\" | \"billing\" | \"technical_issue\",\n  \"sentiment\": \"positive\" | \"neutral\" | \"frustrated\" | \"angry\",\n  \"urgency\": \"low\" | \"medium\" | \"high\" | \"critical\",\n  \"requires_action\": true/false,\n  \"reasoning\": \"one line explanation\"\n}\n\nRules:\n- \"requires_action\" is true ONLY for: order_status, refund_request, billing (when they need an actual lookup or action)\n- \"requires_action\" is false for: product_question, complaint, general, technical_issue\n- \"requires_action\" is true for refund_request ONLY when customer references a specific order number or wants to initiate an actual refund transaction. Questions about refund policy, return policy, timelines, or process are \"product_question\" with requires_action: false.\n- Questions about return or refund STATUS / TIMELINE (\"when will I get my refund\", \"how long does refund take\", \"when can I get it\", \"how soon returns are processed\") are ALWAYS \"product_question\" with requires_action: false.\n- Questions about changing, updating, or modifying a delivery address, shipping address, or order details are ALWAYS \"product_question\" with requires_action: false — even if the customer mentions their order has not shipped yet.\n- route = \"rag\" for any question answerable from knowledge base without needing real order or payment data, even if it mentions \"refund\", \"return\", \"order\", or \"address\".\n- If sentiment is \"angry\" AND urgency is \"critical\", flag for immediate escalation\n- When in doubt, classify as \"general\" with requires_action: false\n- Questions about stolen packages, lost deliveries, missing packages, or porch piracy are ALWAYS \"complaint\" with requires_action: false — even if the customer mentions their order number or delivery address. These are handled via RAG knowledge base, not the action layer."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -48,
+        432
+      ],
+      "id": "0c0a02db-5725-4ca7-9a12-74c64c7e0ab8",
+      "name": "AI Agent  (Classify Intent)"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "vgg2XyRleS7my1uw",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/vgg2XyRleS7my1uw",
+          "cachedResultName": "WF3 — Action Layer"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $('Parse Context WF3').first().json.ticket_id }}",
+            "message": "={{ $('Parse Context WF3').first().json.message }}",
+            "intent": "={{ $('Parse Context WF3').first().json.intent }}",
+            "sentiment": "={{ $('Parse Context WF3').first().json.sentiment }}",
+            "urgency": "={{ $('Parse Context WF3').first().json.urgency }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ticket_id",
+              "displayName": "ticket_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "intent",
+              "displayName": "intent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "sentiment",
+              "displayName": "sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        976,
+        384
+      ],
+      "id": "ae315bc0-8080-4088-8944-ebdfabd6c710",
+      "name": "Call WF3 — Action Layer"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "=application/json",
+        "body": "={{ JSON.stringify({\n  channel: \"C0AG97YAYP2\",\n  text: \"Escalation — Human Required\",\n  blocks: [\n    {\n      type: \"section\",\n      text: {\n        type: \"mrkdwn\",\n        text: `⚠️ *Escalation — Human Required*\\n\\n*Customer Message:* ${$('Normalize Input').first().json.chatInput}\\n\\n*AI Response:* ${$('Escalation Response').first().json.output}\\n\\n*Confidence:* 1/5 | *Grounded:* false`\n      }\n    },\n    {\n      type: \"actions\",\n      elements: [\n        {\n          type: \"button\",\n          text: { type: \"plain_text\", text: \"✅ Mark Resolved\" },\n          style: \"primary\",\n          action_id: \"mark_resolved\",\n          value: $('Set Ticket ID').first().json.ticket_id\n        },\n        {\n          type: \"button\",\n          text: { type: \"plain_text\", text: \"🧠 Resolve + Add to KB\" },\n          action_id: \"resolve_add_kb\",\n          value: $('Set Ticket ID').first().json.ticket_id\n        }\n      ]\n    }\n  ]\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        192
+      ],
+      "id": "c5461622-2fd4-49d9-8523-e96a1caa86d5",
+      "name": "Send to Slack"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({  ticket_id: $('Set Ticket ID').first().json.ticket_id,  channel: 'chat',  customer_id: $('Normalize Input').first().json.sessionId ?? 'unknown',  message: $('Normalize Input').first().json.chatInput ?? '',  intent: \"escalated\",  confidence: 1,  grounded: false,  escalated: true,  resolved: false,  resolution_note: null,  rag_answer: $('Escalation Response').first().json.output ?? '',  response_ms: $now.toMillis() - $('Normalize Input').first().json.start_time}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1424,
+        192
+      ],
+      "id": "5f8830f9-2cc6-455d-a546-a4dc7e9b7ccd",
+      "name": "Log to Supabase"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "60080c42-c125-465e-a5b5-86dc38a15a15",
+              "name": "ticket_id",
+              "value": "={{ $now.toMillis().toString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        976,
+        192
+      ],
+      "id": "aca3ef58-3586-4d5e-a39c-9f35a2a00961",
+      "name": "Set Ticket ID"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1c844042-cb7a-4be5-a892-84fc5cb2af00",
+              "name": "=ticket_id",
+              "value": "={{ $now.toMillis().toString() }}",
+              "type": "string"
+            },
+            {
+              "id": "32a4bdae-ee81-4572-8a9d-ce1103404f06",
+              "name": "=customer_id",
+              "value": "={{ $('Normalize Input').first().json.sessionId ?? 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "bd0ccfbb-7e2d-43ff-92b7-f6fd74e35713",
+              "name": "=channel",
+              "value": "={{ 'chat' }}",
+              "type": "string"
+            },
+            {
+              "id": "bb642bb8-e14f-48de-9325-241e1d8ec2dd",
+              "name": "=message",
+              "value": "={{ $('Normalize Input').first().json.chatInput }}",
+              "type": "string"
+            },
+            {
+              "id": "417e55de-aebb-4937-bb3a-ccef82f47e83",
+              "name": "=start_time",
+              "value": "={{ $now.toMillis() }}",
+              "type": "string"
+            },
+            {
+              "id": "4fb207a7-b787-499e-811f-f2ad1637440b",
+              "name": "=intent",
+              "value": "={{ $('Parse Classification').first().json.intent }}",
+              "type": "string"
+            },
+            {
+              "id": "05d6c1cd-9fe0-4c04-a688-17246d3d87a1",
+              "name": "=sentiment",
+              "value": "={{ $('Parse Classification').first().json.sentiment }}",
+              "type": "string"
+            },
+            {
+              "id": "f5032beb-7682-4140-96f1-5e068102e7b4",
+              "name": "=urgency",
+              "value": "={{ $('Parse Classification').first().json.urgency }}",
+              "type": "string"
+            },
+            {
+              "id": "9bcdc4e3-7961-4711-b4ac-d77b5085e556",
+              "name": "=requires_action",
+              "value": "={{ $('Parse Classification').first().json.requires_action }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        752,
+        384
+      ],
+      "id": "1dc42a45-b9a5-4dda-afdb-6a8394cf9841",
+      "name": "Parse Context WF3"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ecf05478-cef5-407c-b939-8e3fb7aae14c",
+              "name": "customer_id",
+              "value": "={{ $('Normalize Input').first().json.sessionId ?? 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "9785d612-5c76-4697-bfb4-800dfbf5ca5e",
+              "name": "chatInput",
+              "value": "={{ $('Normalize Input').first().json.chatInput }}",
+              "type": "string"
+            },
+            {
+              "id": "a3030806-09a1-41dd-9e26-fdd577ffdfb1",
+              "name": "channel",
+              "value": "={{ 'chat' }}",
+              "type": "string"
+            },
+            {
+              "id": "d79a7529-0499-42f6-afb9-f4a85e41425b",
+              "name": "queryHash",
+              "value": "={{ $('Hash Query').first().json.queryHash }}",
+              "type": "string"
+            },
+            {
+              "id": "0413cf64-1c0e-4793-a894-fbe2c39111d2",
+              "name": "normalizedQuery",
+              "value": "={{ $('Hash Query').first().json.normalizedQuery }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        752,
+        576
+      ],
+      "id": "7667aebd-711f-4900-88ad-bb2b9335cc79",
+      "name": "Parse Context WF4"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "0Bcby1J1u8xYwvmf",
+          "mode": "id",
+          "cachedResultUrl": "/workflow/0Bcby1J1u8xYwvmf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        976,
+        576
+      ],
+      "id": "901ed975-eef9-45eb-b4ba-fb54fa95c5d0",
+      "name": "Call WF4 — RAG Resolution"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ce7fb03a-8189-4574-b0fd-8cb1edbd5b09",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1168,
+        128
+      ],
+      "id": "e0477acf-4a29-4f1a-b5a7-2e2d9c8f4b79",
+      "name": "Webhook",
+      "webhookId": "ce7fb03a-8189-4574-b0fd-8cb1edbd5b09"
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatInput = $input.first().json.body?.chatInput \n               || $input.first().json.chatInput \n               || '';\n\nconst sessionId = $input.first().json.body?.sessionId\n               || $input.first().json.sessionId\n               || 'unknown';\n\nconst start_time = $now.toMillis();\n\nreturn [{ json: { chatInput, sessionId, start_time } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -944,
+        224
+      ],
+      "id": "c61ff172-3af8-46b4-828d-364f9b54a01d",
+      "name": "Normalize Input"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"output\": \"{{ ($json.output || $json.Response || '').replace(/\\n/g, ' ').replace(/\\\"/g, '\\\\\\\"') }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1200,
+        384
+      ],
+      "id": "7fed04f0-2966-4cbe-a31b-3868c96fae91",
+      "name": "Respond to Webhook — Action Layer"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"output\": \"{{ $json.output.replace(/\\n/g, ' ').replace(/\\\"/g, '\\\\\\\"') }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1200,
+        576
+      ],
+      "id": "8faba6f7-aa5c-476b-9534-f1c6378ccdef",
+      "name": "Respond to Webhook — RAG Resolution"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"output\": \"{{ $('Escalation Response').first().json.output }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1648,
+        192
+      ],
+      "id": "48b7c44b-9a01-4440-9a60-e18ad001ea86",
+      "name": "Respond to Webhook — Escalation"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.chatInput.toLowerCase().replace(/\\s+/g, ' ').trim();\n\nlet hash = 5381;\nfor (let i = 0; i < input.length; i++) {\n  hash = ((hash << 5) + hash) + input.charCodeAt(i);\n  hash = hash & 0xFFFFFFFF;\n}\nconst queryHash = (hash >>> 0).toString(16).slice(0, 8);\n\nreturn [{ json: {\n  ...$input.first().json,\n  queryHash,\n  normalizedQuery: input\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        224
+      ],
+      "id": "6cbc78aa-db2b-4a16-a95b-33e1cbbf7d44",
+      "name": "Hash Query"
+    },
+    {
+      "parameters": {
+        "url": "=https://yuucyvefubdwsqvevyen.supabase.co/rest/v1/response_cache",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query_hash",
+              "value": "=eq.{{ $json.queryHash }}"
+            },
+            {
+              "name": "expires_at",
+              "value": "=gt.{{ new Date().toISOString() }}"
+            },
+            {
+              "name": "select",
+              "value": "*"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "REDACTED"
+            },
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -496,
+        224
+      ],
+      "id": "b5601412-0e66-4858-9b42-e82509391867",
+      "name": "Check Cache",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e1f3aa86-85d0-4189-bae0-27496667e985",
+              "leftValue": "={{ $json.response }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -272,
+        224
+      ],
+      "id": "0c0054eb-1f3f-44e8-ad6f-515d200d4b65",
+      "name": "Cache Hit"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ ticket_id: $('Hash Query').first().json.queryHash, message: $('Hash Query').first().json.chatInput, channel: 'chat', customer_id: $('Hash Query').first().json.sessionId ?? 'unknown', intent: 'cache_hit', confidence: 5, grounded: true, escalated: false, resolved: false, rag_answer: $('Check Cache').first().json.response, response_ms: $now.toMillis() - $('Hash Query').first().json.start_time, source: 'wf2', route: 'cache_hit' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        16,
+        128
+      ],
+      "id": "ef047417-acc9-4f5d-aeaf-28bd4becd78a",
+      "name": "Log to Supabase1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"output\": \"{{ $('Check Cache').first().json.response.replace(/\\n/g, ' ').replace(/\\\"/g, '\\\\\\\"') }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        272,
+        128
+      ],
+      "id": "f8e0d0f5-aad3-4fad-a956-0a2382ad1173",
+      "name": "Respond to Webhook — Cache Hit"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "response_cache",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "query_hash",
+              "condition": "eq",
+              "keyValue": "={{ $('Check Cache').first().json.query_hash }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "hit_count",
+              "fieldValue": "={{ $('Check Cache').first().json.hit_count + 1 }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        512,
+        128
+      ],
+      "id": "1b819bf7-aaa4-4290-b236-8b12575fb535",
+      "name": "Increment Hit Count",
+      "credentials": {
+        "supabaseApi": {
+          "id": "8iFJgfZwL0caapYk",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent  (Classify Intent)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalation Response": {
+      "main": [
+        [
+          {
+            "node": "Set Ticket ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Classification": {
+      "main": [
+        [
+          {
+            "node": "Escalation Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Context WF3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Context WF4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Classification": {
+      "main": [
+        [
+          {
+            "node": "Route by Classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent  (Classify Intent)": {
+      "main": [
+        [
+          {
+            "node": "Parse Classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Slack": {
+      "main": [
+        [
+          {
+            "node": "Log to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Ticket ID": {
+      "main": [
+        [
+          {
+            "node": "Send to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Context WF3": {
+      "main": [
+        [
+          {
+            "node": "Call WF3 — Action Layer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Context WF4": {
+      "main": [
+        [
+          {
+            "node": "Call WF4 — RAG Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF3 — Action Layer": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook — Action Layer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook — Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF4 — RAG Resolution": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook — RAG Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Hash Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Query": {
+      "main": [
+        [
+          {
+            "node": "Check Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Cache": {
+      "main": [
+        [
+          {
+            "node": "Cache Hit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Hit": {
+      "main": [
+        [
+          {
+            "node": "Log to Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent  (Classify Intent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Supabase1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook — Cache Hit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook — Cache Hit": {
+      "main": [
+        [
+          {
+            "node": "Increment Hit Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "2fa65cd3-687c-4753-900c-a5729355b602",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e61ca955d45596adf8233865c60f98769a65ad35941f24907f8086865f0f69ef"
+  },
+  "id": "SCNUVesOhiBy96Hd",
+  "tags": []
+}

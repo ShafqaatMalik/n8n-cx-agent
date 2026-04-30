@@ -1,0 +1,139 @@
+name: CD — Deploy Workflows to Railway n8n
+
+on:
+  workflow_dispatch:  # manual trigger only
+
+jobs:
+  deploy:
+    name: Deploy Workflows to n8n
+    runs-on: ubuntu-latest
+    needs: []
+
+    env:
+      N8N_BASE_URL: ${{ secrets.N8N_BASE_URL }}
+      N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify n8n connectivity
+        run: |
+          echo "Checking n8n API connectivity..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "X-N8N-API-KEY: $N8N_API_KEY" \
+            "$N8N_BASE_URL/api/v1/workflows")
+          if [ "$response" != "200" ]; then
+            echo "Failed to connect to n8n API (HTTP $response)"
+            exit 1
+          fi
+          echo "n8n API is reachable."
+
+      - name: Fetch current workflow IDs from n8n
+        id: fetch_workflows
+        run: |
+          echo "Fetching workflow list from n8n..."
+          workflows=$(curl -s \
+            -H "X-N8N-API-KEY: $N8N_API_KEY" \
+            "$N8N_BASE_URL/api/v1/workflows")
+          echo "$workflows" > /tmp/n8n_workflows.json
+          echo "Workflow list fetched."
+
+      - name: Deploy WF2 — Triage
+        run: |
+          python3 << 'EOF'
+          import json, urllib.request, urllib.error, os
+
+          base_url = os.environ["N8N_BASE_URL"]
+          api_key = os.environ["N8N_API_KEY"]
+
+          # Map workflow file names to Railway n8n IDs
+          workflow_map = {
+              "WF2_Triage": "SCNUVesOhiBy96Hd",
+              "WF3_Action_Layer": "vgg2XyRleS7my1uw",
+              "WF4_RAG_Resolution": "0Bcby1J1u8xYwvmf",
+              "WF5_Feedback_Loop": "hdeoQ932csc6NVKi",
+              "WF6_Gmail_Intake": "vzDRXPDAX9JrIK3J",
+              "WF7_Supabase_Logger": "iRI7ulLoQnQ25jXA",
+          }
+
+          def deploy_workflow(filename, workflow_id):
+              filepath = f"workflows/{filename}.json"
+              try:
+                  with open(filepath) as f:
+                      wf_data = json.load(f)
+              except FileNotFoundError:
+                  print(f"  SKIP: {filepath} not found")
+                  return
+              except json.JSONDecodeError as e:
+                  print(f"  FAIL: {filepath} invalid JSON — {e}")
+                  raise
+
+              payload = {
+                  "name": wf_data.get("name", filename),
+                  "nodes": wf_data.get("nodes", []),
+                  "connections": wf_data.get("connections", {}),
+                  "settings": {"executionOrder": wf_data.get("settings", {}).get("executionOrder", "v1")},
+                  "staticData": wf_data.get("staticData", None),
+              }
+
+              url = f"{base_url}/api/v1/workflows/{workflow_id}"
+              body = json.dumps(payload).encode("utf-8")
+              req = urllib.request.Request(
+                  url,
+                  data=body,
+                  method="PUT",
+                  headers={
+                      "Content-Type": "application/json",
+                      "X-N8N-API-KEY": api_key,
+                  }
+              )
+
+              try:
+                  with urllib.request.urlopen(req) as resp:
+                      print(f"  OK [{resp.status}]: {filename} → {workflow_id}")
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode()
+                  print(f"  FAIL [{e.code}]: {filename} — {body[:200]}")
+                  raise
+
+          failed = []
+          for filename, wf_id in workflow_map.items():
+              print(f"Deploying {filename}...")
+              try:
+                  deploy_workflow(filename, wf_id)
+              except Exception as e:
+                  failed.append(filename)
+
+          if failed:
+              print(f"\nFailed deployments: {failed}")
+              exit(1)
+
+          print("\nAll workflows deployed successfully.")
+          EOF
+
+      - name: Activate all workflows
+        run: |
+          echo "Activating workflows..."
+          for id in SCNUVesOhiBy96Hd vgg2XyRleS7my1uw 0Bcby1J1u8xYwvmf hdeoQ932csc6NVKi vzDRXPDAX9JrIK3J iRI7ulLoQnQ25jXA; do
+            response=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X PATCH \
+              -H "X-N8N-API-KEY: $N8N_API_KEY" \
+              -H "Content-Type: application/json" \
+              -d '{"active": true}' \
+              "$N8N_BASE_URL/api/v1/workflows/$id/activate")
+            if [ "$response" = "200" ]; then
+              echo "  ✓ Activated $id"
+            else
+              echo "  ✗ Failed to activate $id (HTTP $response)"
+            fi
+          done
+
+      - name: Deployment summary
+        run: |
+          echo ""
+          echo "============================================"
+          echo "Deployment complete"
+          echo "n8n instance: $N8N_BASE_URL"
+          echo "Workflows deployed: WF2, WF3, WF4, WF5, WF6, WF7"
+          echo "============================================"

@@ -1,0 +1,610 @@
+{
+  "name": "WF4 — RAG Resolution",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -752,
+        -240
+      ],
+      "id": "04219fb7-2222-49c4-ae0f-9e55bc05645e",
+      "name": "When chat message received",
+      "webhookId": "eeb2c9ff-a0e2-468c-8838-783a1f573190"
+    },
+    {
+      "parameters": {
+        "options": {
+          "topK": 5
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -304,
+        80
+      ],
+      "id": "4a2f36cc-6069-4f53-b8ea-46117279d1b1",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "lfuKF8ZZs91HysoW",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "=",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "voltshop_kb",
+          "mode": "list",
+          "cachedResultName": "voltshop_kb"
+        },
+        "options": {
+          "contentPayloadKey": "content"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        -176,
+        80
+      ],
+      "id": "f39114af-b19d-47e2-a073-09f6a1261d16",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "ROqsx76NqqlV9lhY",
+          "name": "Qdrant account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-embedding-001"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -176,
+        288
+      ],
+      "id": "4290af7c-687e-4a7a-87ff-1b05129d6b85",
+      "name": "Embeddings Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "lfuKF8ZZs91HysoW",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -752,
+        -48
+      ],
+      "id": "cb22d3d2-cea9-41ff-b573-786c4ea1f693",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput || $json.raw_message }}\n",
+        "options": {
+          "systemMessage": "You are a helpful customer support agent for VoltShop, an online electronics store.\n\nIMPORTANT: For EVERY customer question, you MUST first search the VoltShop knowledge base using the available tool before responding. Never answer without searching first.\n\nWhen answering from the knowledge base, preserve all key details, alternatives, and actionable suggestions from the retrieved content. Do not summarize or omit information that may help the customer resolve their issue.\n\nAnswer the customer's question using ONLY the context retrieved from the knowledge base. If the search results don't contain enough information to answer confidently, say \"I don't have enough information to answer this accurately\" — do NOT make up information.\n\nAfter your answer, on a new line, output your confidence assessment in this exact format:\nCONFIDENCE: [1-5]\nGROUNDED: [true/false]\n\nWhere:\nCONFIDENCE: [1-5] - Rate based on how well the retrieved KB content answers the question:\n- 5: KB content directly and fully answers the question\n- 4: KB content mostly answers the question with minor gaps\n- 3: KB content partially answers the question\n- 2: KB content is loosely related but doesn't directly answer\n- 1: KB content has no relevant information for this question\n\nGROUNDED: [true/false] - true ONLY if the answer is directly supported by retrieved KB documents, false if the KB returned no relevant results or the answer is based on inference."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -272,
+        -144
+      ],
+      "id": "0b0fca44-fc89-499d-8530-06541cc95d8f",
+      "name": "AI Agent (Generate RAG Response)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json.text || $input.first().json.output;\nconst confidenceMatch = response.match(/CONFIDENCE:\\s*(\\d)/);\nconst groundedMatch = response.match(/GROUNDED:\\s*(true|false)/i);\nconst confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 1;\nconst grounded = groundedMatch ? groundedMatch[1].toLowerCase() === 'true' : false;\nconst cleanResponse = response\n  .replace(/CONFIDENCE:\\s*\\d/g, '')\n  .replace(/GROUNDED:\\s*(true|false)/gi, '')\n  .trim();\nreturn [{\n  json: {\n    response: cleanResponse,\n    confidence: confidence,\n    grounded: grounded,\n    raw_message: $('Generate Ticket ID').first().json.chatInput,\n    ticket_id: $('Generate Ticket ID').first().json.ticket_id,\n    queryHash: $('When Executed by Another Workflow').first().json.queryHash,\n    normalizedQuery: $('When Executed by Another Workflow').first().json.normalizedQuery,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        -144
+      ],
+      "id": "0c6ef086-cf77-4085-8fb2-ce84f353e056",
+      "name": "Parse Confidence"
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ $json.grounded === true ? 0 : 1 }}"
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        416,
+        -144
+      ],
+      "id": "edc583ce-0065-4982-a351-61aae7c6bdce",
+      "name": "Route by Confidence"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = {\n  ...$input.first().json,\n  ticket_id: $('Generate Ticket ID').first().json.ticket_id,\n  raw_message: $('Generate Ticket ID').first().json.chatInput,\n  channel: $('Generate Ticket ID').first().json.channel,\n  customer_id: $('Generate Ticket ID').first().json.customer_id,\n  intent: $('Generate Ticket ID').first().json.intent,\n  route: \"escalated\",\n  response_ms: Date.now() - parseInt($('Generate Ticket ID').first().json.ticket_id),\n};\nconst payload = JSON.stringify({\n  channel: \"C0AG97YAYP2\",\n  text: \"Flagged for Review\",\n  blocks: [\n    {\n      type: \"section\",\n      text: {\n        type: \"mrkdwn\",\n        text: `⚠️ *Flagged for Review*\\n\\n*Customer Message:* ${data.raw_message}\\n\\n*AI Response:* ${data.response}\\n\\n*Confidence:* ${data.confidence}/5 | *Grounded:* ${data.grounded}`\n      }\n    },\n    {\n      type: \"actions\",\n      elements: [\n        {\n          type: \"button\",\n          text: { type: \"plain_text\", text: \"✅ Mark Resolved\" },\n          style: \"primary\",\n          action_id: \"mark_resolved\",\n          value: data.ticket_id\n        },\n        {\n          type: \"button\",\n          text: { type: \"plain_text\", text: \"📚 Resolve + Add to KB\" },\n          action_id: \"resolve_add_kb\",\n          value: data.ticket_id\n        }\n      ]\n    }\n  ]\n});\nreturn [{json: {...data, payload, output: data.output}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        -48
+      ],
+      "id": "53f7dceb-1399-4458-9c79-ba15a91cdf26",
+      "name": "Build Request Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.payload }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1024,
+        -48
+      ],
+      "id": "b92cd8f1-1b6b-4c50-afd8-72e1bfd5647e",
+      "name": "Send to Slack"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "215957c9-a269-4bb2-bb70-55f3c3b7a507",
+              "name": "output",
+              "value": "={{ $json.response }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        640,
+        -240
+      ],
+      "id": "9de90ea8-2585-483d-b226-4ba90bc0b5d2",
+      "name": "Return Confident Response"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "883476ce-ce32-4c3a-986e-84c88e5e658b",
+              "name": "output",
+              "value": "=Thank you for reaching out. I wasn't able to find a confident answer to your question, so I've escalated it to our support team. A human agent will review your query and get back to you shortly.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        640,
+        -48
+      ],
+      "id": "33a89ad5-778f-484b-97d6-48629d182aba",
+      "name": "Return Flagged Response"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4529c81c-d0bb-4c28-a667-095f0389943f",
+              "name": "ticket_id",
+              "value": "={{ $now.toMillis().toString() }}",
+              "type": "string"
+            },
+            {
+              "id": "a19602bf-7d03-47be-8082-c2abf26e33fe",
+              "name": "start_time",
+              "value": "={{ $now.toMillis() }}",
+              "type": "string"
+            },
+            {
+              "id": "e2657850-353a-4396-afd6-de6341d59577",
+              "name": "chatInput",
+              "value": "={{ $input.first().json.chatInput ?? $input.first().json.message ?? $input.first().json.raw_message ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "ed0fdf33-a5fd-4f6c-a2df-7ec176b75536",
+              "name": "customer_id",
+              "value": "={{ $input.first().json.sessionId ?? $input.first().json.customer_id ?? 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "c842c8b3-d610-4857-a633-180dd5980f1f",
+              "name": "channel",
+              "value": "={{ $input.first().json.channel ?? 'chat' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -528,
+        -144
+      ],
+      "id": "2d854798-34a2-4a8d-9661-a7837e3a5eb9",
+      "name": "Generate Ticket ID"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0a63f1d2-7f0f-4447-a516-b28ead614061",
+              "name": "output",
+              "value": "={{ $('Return Confident Response').item.json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1232,
+        -240
+      ],
+      "id": "cc65a20d-f713-4b06-be55-221c5311f21c",
+      "name": "Return Output"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "820926c4-1668-48b9-a59a-350eb3c89d5a",
+              "name": "output",
+              "value": "={{ $('Build Request Payload').item.json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1408,
+        -48
+      ],
+      "id": "013fe6f5-0e26-41fb-935d-b71e68123d2f",
+      "name": "Return Output (Escalated)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ ticket_id: $('Build Request Payload').first().json.ticket_id, message: $('Build Request Payload').first().json.raw_message, rag_answer: $('Build Request Payload').first().json.response, confidence: $('Build Request Payload').first().json.confidence, grounded: $('Build Request Payload').first().json.grounded, escalated: true, resolved: false, source: \"wf4\", route: \"escalated\", channel: $('Build Request Payload').first().json.channel, customer_id: $('Build Request Payload').first().json.customer_id, intent: $('Build Request Payload').first().json.intent, response_ms: $('Build Request Payload').first().json.response_ms }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1216,
+        -48
+      ],
+      "id": "d6a36c24-2793-47f4-9a0a-1a2a23d54c1c",
+      "name": "Log to Supabase (Escalated)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ ticket_id: $('Generate Ticket ID').first().json.ticket_id, message: $('Generate Ticket ID').first().json.raw_message, rag_answer: $('Return Confident Response').first().json.output, confidence: $('Parse Confidence').first().json.confidence, grounded: true, escalated: false, resolved: false, source: \"wf4\", route: \"confident\", channel: $('Generate Ticket ID').first().json.channel, customer_id: $('Generate Ticket ID').first().json.customer_id, intent: $('Generate Ticket ID').first().json.intent, response_ms: Date.now() - parseInt($('Generate Ticket ID').first().json.ticket_id) }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1040,
+        -240
+      ],
+      "id": "2c6b14ca-2fe7-442e-969e-d65f38a147b3",
+      "name": "Log to Supabase"
+    },
+    {
+      "parameters": {
+        "tableId": "response_cache",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "query_hash",
+              "fieldValue": "={{ $input.first().json.queryHash }}"
+            },
+            {
+              "fieldId": "query_text",
+              "fieldValue": "={{ $input.first().json.normalizedQuery }}"
+            },
+            {
+              "fieldId": "hit_count",
+              "fieldValue": "0"
+            },
+            {
+              "fieldId": "expires_at",
+              "fieldValue": "={{ new Date('2027-01-01').toISOString() }}"
+            },
+            {
+              "fieldId": "response",
+              "fieldValue": "={{ $input.first().json.output }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        848,
+        -240
+      ],
+      "id": "1d7fd560-5084-4427-9d4d-dbfd7ca8dfbe",
+      "name": "Write Cache",
+      "credentials": {
+        "supabaseApi": {
+          "id": "8iFJgfZwL0caapYk",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Generate Ticket ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent (Generate RAG Response)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent (Generate RAG Response)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Generate Ticket ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent (Generate RAG Response)": {
+      "main": [
+        [
+          {
+            "node": "Parse Confidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Confidence": {
+      "main": [
+        [
+          {
+            "node": "Route by Confidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Confidence": {
+      "main": [
+        [
+          {
+            "node": "Return Confident Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Flagged Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Request Payload": {
+      "main": [
+        [
+          {
+            "node": "Send to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return Flagged Response": {
+      "main": [
+        [
+          {
+            "node": "Build Request Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Slack": {
+      "main": [
+        [
+          {
+            "node": "Log to Supabase (Escalated)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Ticket ID": {
+      "main": [
+        [
+          {
+            "node": "AI Agent (Generate RAG Response)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return Confident Response": {
+      "main": [
+        [
+          {
+            "node": "Write Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Supabase (Escalated)": {
+      "main": [
+        [
+          {
+            "node": "Return Output (Escalated)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Return Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Cache": {
+      "main": [
+        [
+          {
+            "node": "Log to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "00c8fbfa-e5a5-4157-a1a2-ed4d1764de78",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e61ca955d45596adf8233865c60f98769a65ad35941f24907f8086865f0f69ef"
+  },
+  "id": "0Bcby1J1u8xYwvmf",
+  "tags": []
+}

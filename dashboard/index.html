@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VoltShop — Premium Electronics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ── CONFIGURATION ─────────────────────────────────────────────────────── */
+/* Replace this URL with your WF2 chat trigger webhook URL                  */
+/* Found in n8n: WF2 → "When chat message received" node → copy URL        */
+
+/* ── RESET & BASE ──────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --volt: #00D4FF;
+  --volt-dim: #0099BB;
+  --volt-glow: rgba(0, 212, 255, 0.15);
+  --bg: #080C10;
+  --bg2: #0D1219;
+  --bg3: #121923;
+  --surface: #1A2332;
+  --surface2: #1F2B3E;
+  --border: rgba(255,255,255,0.07);
+  --border-accent: rgba(0,212,255,0.25);
+  --text: #E8EDF5;
+  --text-secondary: #7A8FA8;
+  --text-muted: #4A5A70;
+  --red: #FF4D6A;
+  --green: #00E5A0;
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── NOISE OVERLAY ─────────────────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ── NAV ───────────────────────────────────────────────────────────────── */
+nav {
+  position: fixed;
+  top: 44px; left: 0; right: 0;
+  z-index: 100;
+  padding: 0 48px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(8, 12, 16, 0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.5px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo-bolt {
+  width: 28px; height: 28px;
+  background: var(--volt);
+  clip-path: polygon(60% 0%, 40% 45%, 70% 45%, 30% 100%, 55% 55%, 25% 55%);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.nav-links {
+  display: flex;
+  gap: 36px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  letter-spacing: 0.2px;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover { color: var(--text); }
+
+.nav-cta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.nav-support-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--volt);
+  font-weight: 500;
+}
+
+.live-dot {
+  width: 7px; height: 7px;
+  background: var(--green);
+  border-radius: 50%;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+/* ── HERO ──────────────────────────────────────────────────────────────── */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 164px 48px 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-glow {
+  position: absolute;
+  top: -200px; left: 50%;
+  transform: translateX(-50%);
+  width: 900px; height: 600px;
+  background: radial-gradient(ellipse, rgba(0,212,255,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-accent);
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--volt);
+  letter-spacing: 0.5px;
+  margin-bottom: 28px;
+  width: fit-content;
+  background: var(--volt-glow);
+}
+
+.hero h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(42px, 5vw, 68px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -2px;
+  margin-bottom: 24px;
+}
+
+.hero h1 em {
+  font-style: normal;
+  color: var(--volt);
+}
+
+.hero-sub {
+  font-size: 18px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 40px;
+  font-weight: 300;
+  max-width: 480px;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.btn-primary {
+  padding: 14px 28px;
+  background: var(--volt);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: -0.2px;
+}
+
+.btn-primary:hover {
+  background: #33DDFF;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0,212,255,0.3);
+}
+
+.btn-secondary {
+  padding: 14px 28px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: var(--volt);
+  color: var(--volt);
+}
+
+/* ── PRODUCT SHOWCASE ──────────────────────────────────────────────────── */
+.showcase {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.product-card-large {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+
+.product-card-large:hover { border-color: var(--border-accent); }
+
+.product-card-large::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(0,212,255,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.product-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: rgba(0,212,255,0.1);
+  border: 1px solid var(--border-accent);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--volt);
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.product-badge.hot {
+  background: rgba(255,77,106,0.1);
+  border-color: rgba(255,77,106,0.3);
+  color: var(--red);
+}
+
+.product-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  letter-spacing: -0.3px;
+}
+
+.product-spec {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.product-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.product-price {
+  font-family: 'Syne', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.product-price-old {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-decoration: line-through;
+  margin-left: 8px;
+}
+
+.add-btn {
+  width: 40px; height: 40px;
+  background: var(--volt);
+  border: none;
+  border-radius: 50%;
+  color: var(--bg);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  font-weight: 300;
+}
+
+.add-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 16px rgba(0,212,255,0.4);
+}
+
+.product-cards-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.product-card-sm {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+  transition: border-color 0.3s;
+}
+
+.product-card-sm:hover { border-color: var(--border-accent); }
+
+.product-card-sm .product-name { font-size: 15px; margin-bottom: 4px; }
+.product-card-sm .product-price { font-size: 20px; }
+.product-card-sm .product-spec { font-size: 12px; margin-bottom: 14px; }
+
+/* ── STATS BAR ─────────────────────────────────────────────────────────── */
+.stats-bar {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 32px 48px;
+}
+
+.stats-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 40px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-num {
+  font-family: 'Syne', sans-serif;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: var(--volt);
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* ── PRODUCTS SECTION ──────────────────────────────────────────────────── */
+.products-section {
+  padding: 80px 48px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 40px;
+}
+
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.section-link {
+  font-size: 14px;
+  color: var(--volt);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.pcard {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.pcard:hover {
+  border-color: var(--border-accent);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.pcard-icon {
+  width: 56px; height: 56px;
+  background: var(--surface);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  margin-bottom: 20px;
+}
+
+.pcard-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  letter-spacing: -0.3px;
+}
+
+.pcard-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.pcard-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pcard-price {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.pcard-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.stars { color: #FFB800; letter-spacing: -1px; font-size: 13px; }
+
+/* ── SUPPORT BANNER ────────────────────────────────────────────────────── */
+.support-banner {
+  margin: 0 48px 80px;
+  background: linear-gradient(135deg, var(--bg3) 0%, var(--surface) 100%);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius);
+  padding: 48px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.support-banner::before {
+  content: '';
+  position: absolute;
+  right: -100px; top: -100px;
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 60%);
+}
+
+.support-banner-text h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 10px;
+}
+
+.support-banner-text p {
+  color: var(--text-secondary);
+  font-size: 15px;
+  max-width: 480px;
+  line-height: 1.6;
+}
+
+.support-features {
+  display: flex;
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.support-feat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.feat-dot {
+  width: 8px; height: 8px;
+  background: var(--green);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.open-chat-btn {
+  padding: 16px 32px;
+  background: var(--volt);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.open-chat-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0,212,255,0.35);
+}
+
+/* ── FOOTER ────────────────────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 40px 48px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ── CHAT WIDGET ───────────────────────────────────────────────────────── */
+.chat-bubble {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 1000;
+}
+
+.chat-toggle {
+  width: 60px; height: 60px;
+  background: var(--volt);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 32px rgba(0,212,255,0.4);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+.chat-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 12px 40px rgba(0,212,255,0.5);
+}
+
+.chat-toggle svg {
+  transition: all 0.3s;
+  position: absolute;
+}
+
+.chat-toggle .icon-chat { opacity: 1; transform: scale(1) rotate(0deg); }
+.chat-toggle .icon-close { opacity: 0; transform: scale(0.5) rotate(-90deg); }
+
+.chat-toggle.open .icon-chat { opacity: 0; transform: scale(0.5) rotate(90deg); }
+.chat-toggle.open .icon-close { opacity: 1; transform: scale(1) rotate(0deg); }
+
+.chat-notif {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 18px; height: 18px;
+  background: var(--red);
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.chat-notif.hidden { transform: scale(0); opacity: 0; }
+
+/* ── CHAT PANEL ────────────────────────────────────────────────────────── */
+.chat-panel {
+  position: fixed;
+  bottom: 104px;
+  right: 28px;
+  width: 380px;
+  height: 560px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 999;
+  transform: scale(0.9) translateY(20px);
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: bottom right;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.chat-panel.open {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* Chat Header */
+.chat-header {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+  flex-shrink: 0;
+}
+
+.chat-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.chat-agent-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.agent-avatar {
+  width: 40px; height: 40px;
+  background: linear-gradient(135deg, var(--volt) 0%, #0088AA 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.agent-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.agent-status {
+  font-size: 12px;
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.chat-header-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Quick prompts */
+.quick-prompts {
+  padding: 12px 16px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+}
+
+.quick-prompts::-webkit-scrollbar { display: none; }
+
+.qp {
+  white-space: nowrap;
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+  flex-shrink: 0;
+}
+
+.qp:hover {
+  border-color: var(--border-accent);
+  color: var(--volt);
+  background: var(--volt-glow);
+}
+
+/* Messages */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface2) transparent;
+}
+
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+
+.msg {
+  display: flex;
+  flex-direction: column;
+  animation: msg-in 0.3s ease;
+}
+
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.msg.user { align-items: flex-end; }
+.msg.bot { align-items: flex-start; }
+
+.msg-bubble {
+  max-width: 85%;
+  padding: 11px 15px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.msg.user .msg-bubble {
+  background: var(--volt);
+  color: var(--bg);
+  border-bottom-right-radius: 4px;
+  font-weight: 500;
+}
+
+.msg.bot .msg-bubble {
+  background: var(--surface);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.msg-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+/* Typing indicator */
+.typing-indicator {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  animation: msg-in 0.3s ease;
+}
+
+.typing-dots {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  border-bottom-left-radius: 4px;
+  padding: 14px 18px;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.typing-dots span {
+  width: 6px; height: 6px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  animation: typing 1.2s ease-in-out infinite;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+/* Input */
+.chat-input-area {
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg3);
+  flex-shrink: 0;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.chat-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 11px 16px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s;
+  max-height: 100px;
+  line-height: 1.5;
+}
+
+.chat-input::placeholder { color: var(--text-muted); }
+.chat-input:focus { border-color: var(--border-accent); }
+
+.send-btn {
+  width: 42px; height: 42px;
+  background: var(--volt);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: #33DDFF;
+  transform: translateY(-1px);
+}
+
+.send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.chat-footer-note {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* ── ANIMATIONS ────────────────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hero-text-col > * {
+  animation: fadeUp 0.7s ease both;
+}
+
+.hero-text-col > *:nth-child(1) { animation-delay: 0.1s; }
+.hero-text-col > *:nth-child(2) { animation-delay: 0.2s; }
+.hero-text-col > *:nth-child(3) { animation-delay: 0.3s; }
+.hero-text-col > *:nth-child(4) { animation-delay: 0.4s; }
+
+.showcase { animation: fadeUp 0.8s 0.3s ease both; }
+</style>
+</head>
+<body>
+<!-- DEMO DISCLAIMER -->
+<div style="position:sticky;top:0;z-index:999;background:#1d4ed8;color:#fff;text-align:center;padding:10px 16px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;">
+  Demo storefront — product buttons are non-functional. The AI support agent (VoltBot) is fully operational — try chatting below.
+</div>
+<!-- NAV -->
+<nav>
+  <div class="logo">
+    <span class="logo-bolt"></span>
+    VoltShop
+  </div>
+  <ul class="nav-links">
+    <li><a href="#">Products</a></li>
+    <li><a href="#">Deals</a></li>
+    <li><a href="#">Brands</a></li>
+    <li><a href="#">Support</a></li>
+  </ul>
+  <div class="nav-cta">
+    <div class="nav-support-badge">
+      <span class="live-dot"></span>
+      AI Support Live
+    </div>
+    <button class="btn-primary" onclick="openChat()">Chat with us</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-grid">
+    <div class="hero-text-col">
+      <div class="hero-tag">
+        <span class="live-dot"></span>
+        New arrivals — Winter 2026
+      </div>
+      <h1>Power your<br><em>world</em> with<br>the best tech.</h1>
+      <p class="hero-sub">From cutting-edge laptops to pro audio gear — VoltShop delivers premium electronics with next-day delivery and AI-powered 24/7 support.</p>
+      <div class="hero-actions">
+        <button class="btn-primary">Shop now</button>
+        <button class="btn-secondary" onclick="openChat()">Get support →</button>
+      </div>
+    </div>
+    <div class="showcase">
+      <div class="product-card-large">
+        <span class="product-badge hot">🔥 Hot deal</span>
+        <div class="product-name">ProBook X15 Ultra</div>
+        <div class="product-spec">Intel Core i9 · 32GB RAM · 1TB NVMe · OLED 4K</div>
+        <div class="product-footer">
+          <div>
+            <span class="product-price">$1,299</span>
+            <span class="product-price-old">$1,799</span>
+          </div>
+          <button class="add-btn">+</button>
+        </div>
+      </div>
+      <div class="product-cards-row">
+        <div class="product-card-sm">
+          <span class="product-badge">New</span>
+          <div class="product-name">AirBuds Pro X</div>
+          <div class="product-spec">ANC · 40hr battery</div>
+          <div class="product-footer">
+            <span class="product-price">$249</span>
+            <button class="add-btn">+</button>
+          </div>
+        </div>
+        <div class="product-card-sm">
+          <span class="product-badge">Sale</span>
+          <div class="product-name">VoltCam 4K</div>
+          <div class="product-spec">120fps · f/1.8 lens</div>
+          <div class="product-footer">
+            <span class="product-price">$449</span>
+            <button class="add-btn">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat">
+      <span class="stat-num">50K+</span>
+      <span class="stat-label">Happy customers</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">2min</span>
+      <span class="stat-label">Avg support response</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">98%</span>
+      <span class="stat-label">Satisfaction rate</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">24/7</span>
+      <span class="stat-label">AI-powered support</span>
+    </div>
+  </div>
+</div>
+
+<!-- PRODUCTS -->
+<section class="products-section">
+  <div class="section-header">
+    <h2 class="section-title">Featured products</h2>
+    <a href="#" class="section-link">View all →</a>
+  </div>
+  <div class="products-grid">
+    <div class="pcard">
+      <div class="pcard-icon">⌨️</div>
+      <div class="pcard-name">MechKey Pro 75%</div>
+      <div class="pcard-desc">Hot-swappable switches, PBT keycaps, per-key RGB. The last keyboard you'll ever need.</div>
+      <div class="pcard-footer">
+        <span class="pcard-price">$189</span>
+        <div class="pcard-rating"><span class="stars">★★★★★</span> 4.9</div>
+      </div>
+    </div>
+    <div class="pcard">
+      <div class="pcard-icon">🖥️</div>
+      <div class="pcard-name">UltraWide 34" QHD</div>
+      <div class="pcard-desc">3440×1440 IPS, 165Hz, 1ms, USB-C 96W PD. Dominate productivity and gaming.</div>
+      <div class="pcard-footer">
+        <span class="pcard-price">$649</span>
+        <div class="pcard-rating"><span class="stars">★★★★★</span> 4.8</div>
+      </div>
+    </div>
+    <div class="pcard">
+      <div class="pcard-icon">🎙️</div>
+      <div class="pcard-name">Studio Mic USB-C</div>
+      <div class="pcard-desc">Cardioid condenser, 24-bit/192kHz, zero-latency monitoring. Broadcast quality at home.</div>
+      <div class="pcard-footer">
+        <span class="pcard-price">$129</span>
+        <div class="pcard-rating"><span class="stars">★★★★☆</span> 4.7</div>
+      </div>
+    </div>
+    <div class="pcard">
+      <div class="pcard-icon">🔋</div>
+      <div class="pcard-name">PowerBank 26800</div>
+      <div class="pcard-desc">140W GaN charging, charges MacBook Pro in 45min. Dual USB-C, USB-A, MagSafe compatible.</div>
+      <div class="pcard-footer">
+        <span class="pcard-price">$89</span>
+        <div class="pcard-rating"><span class="stars">★★★★★</span> 4.9</div>
+      </div>
+    </div>
+    <div class="pcard">
+      <div class="pcard-icon">🖱️</div>
+      <div class="pcard-name">ErgoMouse Vertical</div>
+      <div class="pcard-desc">Ergonomic vertical design, 8000 DPI, 7 buttons, rechargeable. Goodbye wrist pain.</div>
+      <div class="pcard-footer">
+        <span class="pcard-price">$79</span>
+        <div class="pcard-rating"><span class="stars">★★★★☆</span> 4.6</div>
+      </div>
+    </div>
+    <div class="pcard">
+      <div class="pcard-icon">📡</div>
+      <div class="pcard-name">WiFi 7 Mesh Pro</div>
+      <div class="pcard-desc">Tri-band 9.6Gbps, covers 6000 sq ft, self-optimizing mesh. Built for the future.</div>
+      <div class="pcard-footer">
+        <span class="pcard-price">$399</span>
+        <div class="pcard-rating"><span class="stars">★★★★★</span> 4.8</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SUPPORT BANNER -->
+<div style="max-width:1200px; margin: 0 auto;">
+  <div class="support-banner">
+    <div class="support-banner-text">
+      <h2>Got a question? Our AI has the answer.</h2>
+      <p>Track orders, process refunds, check product specs — instantly, 24/7. No waiting on hold, no email threads.</p>
+      <div class="support-features">
+        <div class="support-feat"><span class="feat-dot"></span> Order tracking</div>
+        <div class="support-feat"><span class="feat-dot"></span> Instant refunds</div>
+        <div class="support-feat"><span class="feat-dot"></span> Product support</div>
+      </div>
+    </div>
+    <button class="open-chat-btn" onclick="openChat()">
+      Start chatting →
+    </button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="logo" style="font-size:16px;">
+    <span class="logo-bolt" style="width:20px;height:20px;"></span>
+    VoltShop
+  </div>
+  <span>© 2026 VoltShop. All rights reserved.</span>
+  <span>Built with AI-powered customer support</span>
+</footer>
+
+<!-- CHAT BUBBLE -->
+<div class="chat-bubble">
+  <button class="chat-toggle" id="chatToggle" onclick="toggleChat()">
+    <svg class="icon-chat" width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill="var(--bg)" stroke="var(--bg)" stroke-width="0"/>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill="var(--bg)"/>
+    </svg>
+    <svg class="icon-close" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="2.5" stroke-linecap="round">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+    <span class="chat-notif" id="chatNotif">1</span>
+  </button>
+</div>
+
+<!-- CHAT PANEL -->
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-header">
+    <div class="chat-header-top">
+      <div class="chat-agent-info">
+        <div class="agent-avatar">⚡</div>
+        <div>
+          <div class="agent-name">VoltBot</div>
+          <div class="agent-status">
+            <span class="live-dot"></span>
+            Online — typically replies instantly
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-header-subtitle">
+      Ask about orders, refunds, products, or anything else.
+    </div>
+  </div>
+
+  <div class="quick-prompts" id="quickPrompts">
+    <button class="qp" onclick="sendQuick('Where is my order?')">Where is my order?</button>
+    <button class="qp" onclick="sendQuick('I want to return an item')">Return an item</button>
+    <button class="qp" onclick="sendQuick('What is your refund policy?')">Refund policy</button>
+    <button class="qp" onclick="sendQuick('Track my delivery')">Track delivery</button>
+    <button class="qp" onclick="sendQuick('Product warranty info')">Warranty info</button>
+  </div>
+
+  <div class="chat-messages" id="chatMessages">
+    <div class="msg bot">
+      <div class="msg-bubble">
+        👋 Hi! I'm VoltBot, VoltShop's AI support assistant.<br><br>
+        I can help you with orders, refunds, product questions, and more. What can I do for you today?
+      </div>
+      <span class="msg-time">Just now</span>
+    </div>
+  </div>
+
+  <div class="chat-input-area">
+    <div class="chat-input-row">
+      <textarea
+        class="chat-input"
+        id="chatInput"
+        placeholder="Type your message..."
+        rows="1"
+        onkeydown="handleKey(event)"
+        oninput="autoResize(this)"
+      ></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+    <div class="chat-footer-note">Powered by VoltShop AI · Responses are instant</div>
+  </div>
+</div>
+
+<script>
+// ── CONFIGURATION ───────────────────────const───────────────────────────────────
+const WEBHOOK_URL = 'https://n8n-production-acb9.up.railway.app/webhook/ce7fb03a-8189-4574-b0fd-8cb1edbd5b09';
+// ── CHAT STATE ─────────────────────────────────────────────────────────────
+let isOpen = false;
+let isTyping = false;
+let sessionId = 'vs_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+// ── TOGGLE ─────────────────────────────────────────────────────────────────
+function toggleChat() {
+  isOpen = !isOpen;
+  const panel = document.getElementById('chatPanel');
+  const toggle = document.getElementById('chatToggle');
+  const notif = document.getElementById('chatNotif');
+
+  panel.classList.toggle('open', isOpen);
+  toggle.classList.toggle('open', isOpen);
+  notif.classList.add('hidden');
+
+  if (isOpen) {
+    setTimeout(() => document.getElementById('chatInput').focus(), 300);
+  }
+}
+
+function openChat() {
+  if (!isOpen) toggleChat();
+}
+
+// ── SEND MESSAGE ───────────────────────────────────────────────────────────
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || isTyping) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+
+  appendMessage('user', text);
+  hideQuickPrompts();
+  showTyping();
+
+  try {
+    const response = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chatInput: text,
+        sessionId: sessionId
+      })
+    });
+
+    const data = await response.json();
+    hideTyping();
+
+    // n8n chat trigger returns { output: "..." }
+    const reply = data.output || data.text || data.message || data.response ||
+                  (typeof data === 'string' ? data : 'I received your message. Let me look into that for you.');
+    appendMessage('bot', reply);
+
+  } catch (err) {
+    hideTyping();
+    appendMessage('bot', "I'm having trouble connecting right now. Please try again in a moment, or contact us at support@voltshop.com");
+    console.error('Chat error:', err);
+  }
+}
+
+function sendQuick(text) {
+  document.getElementById('chatInput').value = text;
+  sendMessage();
+}
+
+// ── MESSAGE RENDERING ──────────────────────────────────────────────────────
+function appendMessage(role, text) {
+  const container = document.getElementById('chatMessages');
+  const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const msg = document.createElement('div');
+  msg.className = `msg ${role}`;
+
+  // Convert newlines to <br> for bot messages
+const formatted = role === 'bot'
+    ? text.replace(/â€"/g, '–').replace(/â€"/g, '—').replace(/â€˜/g, "'").replace(/â€™/g, "'").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    : text;
+
+  msg.innerHTML = `
+    <div class="msg-bubble">${formatted}</div>
+    <span class="msg-time">${now}</span>
+  `;
+
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping() {
+  isTyping = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  const container = document.getElementById('chatMessages');
+  const typing = document.createElement('div');
+  typing.className = 'typing-indicator';
+  typing.id = 'typingIndicator';
+  typing.innerHTML = `
+    <div class="typing-dots">
+      <span></span><span></span><span></span>
+    </div>
+  `;
+  container.appendChild(typing);
+  container.scrollTop = container.scrollHeight;
+}
+
+function hideTyping() {
+  isTyping = false;
+  document.getElementById('sendBtn').disabled = false;
+  const t = document.getElementById('typingIndicator');
+  if (t) t.remove();
+}
+
+function hideQuickPrompts() {
+  const qp = document.getElementById('quickPrompts');
+  if (qp) {
+    qp.style.transition = 'all 0.3s';
+    qp.style.maxHeight = '0';
+    qp.style.padding = '0';
+    qp.style.opacity = '0';
+    qp.style.overflow = 'hidden';
+  }
+}
+
+// ── INPUT HELPERS ──────────────────────────────────────────────────────────
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+</script>
+</body>
+</html>

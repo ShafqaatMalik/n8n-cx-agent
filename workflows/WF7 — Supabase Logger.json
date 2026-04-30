@@ -1,0 +1,283 @@
+{
+  "name": "WF7 — Supabase Logger",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "log-ticket",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -16,
+        0
+      ],
+      "id": "992bf5c5-961b-4e9c-8e7b-99cf4ee1162f",
+      "name": "Webhook",
+      "webhookId": "139c689e-b977-4221-97da-2611aff12343"
+    },
+    {
+      "parameters": {
+        "tableId": "support_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "channel",
+              "fieldValue": "={{ $json.channel }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "message",
+              "fieldValue": "={{ $json.message }}"
+            },
+            {
+              "fieldId": "intent",
+              "fieldValue": "={{ $json.intent }}"
+            },
+            {
+              "fieldId": "confidence",
+              "fieldValue": "={{ $json.confidence }}"
+            },
+            {
+              "fieldId": "rag_answer",
+              "fieldValue": "={{ $json.rag_answer }}"
+            },
+            {
+              "fieldId": "grounded",
+              "fieldValue": "={{ $json.grounded }}"
+            },
+            {
+              "fieldId": "escalated",
+              "fieldValue": "={{ $json.escalated }}"
+            },
+            {
+              "fieldId": "response_ms",
+              "fieldValue": "={{ $json.response_ms }}"
+            },
+            {
+              "fieldId": "ticket_id",
+              "fieldValue": "={{ $json.ticket_id }}"
+            },
+            {
+              "fieldId": "route",
+              "fieldValue": "={{ $json.route }}"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "={{ $json.source }}"
+            },
+            {
+              "fieldId": "resolved",
+              "fieldValue": "={{ $json.resolved }}"
+            },
+            {
+              "fieldId": "resolution_note",
+              "fieldValue": "={{ $json.resolution_note }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        608,
+        96
+      ],
+      "id": "337a8c96-8053-43ca-998a-5e4fa0b26a78",
+      "name": "Insert Support Log",
+      "credentials": {
+        "supabaseApi": {
+          "id": "8iFJgfZwL0caapYk",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\": \"ok\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        800,
+        0
+      ],
+      "id": "99945be0-cfa0-405f-9b37-f2df190f2b0e",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "support_logs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ticket_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.ticket_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "resolved",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "resolution_note",
+              "fieldValue": "={{ $json.resolution_note }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        608,
+        -112
+      ],
+      "id": "67a19852-bb29-4241-9975-071dbdd73eac",
+      "name": "Update Ticket Resolved",
+      "credentials": {
+        "supabaseApi": {
+          "id": "8iFJgfZwL0caapYk",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7d7acb10-d040-4b37-90ed-baaec23afc9b",
+              "leftValue": "={{ $json.action}}",
+              "rightValue": "update",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        400,
+        0
+      ],
+      "id": "832bc4a5-2777-42c5-8576-9ed9b0ed1436",
+      "name": "Route: Update or Insert"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json.body;\nreturn [{ json: data }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        0
+      ],
+      "id": "679a190f-725c-49f8-80ba-27ba3d4af902",
+      "name": "Parse Incoming Payload"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Incoming Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Support Log": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route: Update or Insert": {
+      "main": [
+        [
+          {
+            "node": "Update Ticket Resolved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert Support Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Ticket Resolved": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Incoming Payload": {
+      "main": [
+        [
+          {
+            "node": "Route: Update or Insert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "3d7632f7-3a62-4740-9f16-fd00fb3a20b7",
+  "meta": {
+    "instanceId": "e61ca955d45596adf8233865c60f98769a65ad35941f24907f8086865f0f69ef"
+  },
+  "id": "iRI7ulLoQnQ25jXA",
+  "tags": []
+}
