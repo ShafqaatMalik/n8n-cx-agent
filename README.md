@@ -276,6 +276,9 @@ Free tier Postgres has a connection pool ceiling. At sustained concurrency >15, 
 **n8n HTTP Request node silently fails on Supabase PATCH/INSERT**
 HTTP Request nodes configured to POST/PATCH Supabase REST API return empty output with no error when the operation fails (RLS violation, malformed body, auth issue). Native Supabase nodes expose errors correctly. All cache operations (Write Cache, Increment Hit Count) use native Supabase nodes as a result.
 
+**Gemini model is a `-latest` alias**
+All chat model nodes use `models/gemini-flash-lite-latest`, the only Gemini chat model that works reliably on the free-tier key (`gemini-2.5-flash-lite` returns 404 for new keys; `gemini-flash-latest` returns 503 under free-tier load). Google can repoint the alias to a newer model without notice, which may change answer style or tool-calling behaviour. Temperature is set to 0: at default temperature the model intermittently emitted an empty tool call (2 of 12 RAG requests), which WF4 routed to escalation; at 0 it answered 15 of 15 test questions grounded. If RAG answers start escalating unexpectedly, check this alias first.
+
 ---
 
 ## Repository Structure

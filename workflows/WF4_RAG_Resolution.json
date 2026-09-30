@@ -19,7 +19,8 @@
       "parameters": {
         "modelName": "models/gemini-flash-lite-latest",
         "options": {
-          "topK": 5
+          "topK": 5,
+          "temperature": 0
         }
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
