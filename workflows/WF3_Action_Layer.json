@@ -39,6 +39,7 @@
     },
     {
       "parameters": {
+        "modelName": "models/gemini-flash-lite-latest",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
@@ -51,7 +52,7 @@
       "name": "Google Gemini Chat Model",
       "credentials": {
         "googlePalmApi": {
-          "id": "lfuKF8ZZs91HysoW",
+          "id": "vBZtK9mc6LE88sOh",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -168,7 +169,7 @@
       "name": "Shopify — Get Orders",
       "credentials": {
         "httpMultipleHeadersAuth": {
-          "id": "8kouEfhnNx8AiQSA",
+          "id": "LeIlnVpuHjB8BR8o",
           "name": "Multiple Headers Auth account"
         }
       }
@@ -203,7 +204,7 @@
       "name": "Stripe — Get Charges",
       "credentials": {
         "stripeApi": {
-          "id": "riZbil9y3cNTtxAk",
+          "id": "aUiKA8bo1wyZJvRd",
           "name": "Stripe account"
         }
       }
@@ -283,7 +284,7 @@
       "name": "Stripe — Process Refund",
       "credentials": {
         "stripeApi": {
-          "id": "riZbil9y3cNTtxAk",
+          "id": "aUiKA8bo1wyZJvRd",
           "name": "Stripe account"
         }
       }
@@ -399,7 +400,7 @@
       "name": "Shopify — Verify Order",
       "credentials": {
         "httpMultipleHeadersAuth": {
-          "id": "8kouEfhnNx8AiQSA",
+          "id": "LeIlnVpuHjB8BR8o",
           "name": "Multiple Headers Auth account"
         }
       }
@@ -534,17 +535,10 @@
     },
     {
       "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
         "method": "POST",
         "url": "https://slack.com/api/chat.postMessage",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "REDACTED"
-            }
-          ]
-        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "=application/json",
@@ -558,12 +552,18 @@
         -768
       ],
       "id": "caee50be-84f7-4a51-b183-c6ab57a08904",
-      "name": "Slack — Request Approval"
+      "name": "Slack — Request Approval",
+      "credentials": {
+        "slackApi": {
+          "id": "jgz6RCjuACRpLKUS",
+          "name": "Slack Bot"
+        }
+      }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "url": "https://n8n-389802584130.asia-northeast1.run.app/webhook/log-ticket",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -583,7 +583,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "url": "https://n8n-389802584130.asia-northeast1.run.app/webhook/log-ticket",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -603,7 +603,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "url": "https://n8n-389802584130.asia-northeast1.run.app/webhook/log-ticket",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -623,7 +623,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "url": "https://n8n-389802584130.asia-northeast1.run.app/webhook/log-ticket",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -642,17 +642,10 @@
     },
     {
       "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
         "method": "POST",
         "url": "https://slack.com/api/chat.postMessage",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "REDACTED"
-            }
-          ]
-        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "=application/json",
@@ -666,21 +659,20 @@
         -576
       ],
       "id": "8678c575-be36-4fb4-b4d8-a7af8f401634",
-      "name": "Slack — No Match Alert"
+      "name": "Slack — No Match Alert",
+      "credentials": {
+        "slackApi": {
+          "id": "jgz6RCjuACRpLKUS",
+          "name": "Slack Bot"
+        }
+      }
     },
     {
       "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
         "method": "POST",
         "url": "https://slack.com/api/chat.postMessage",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "REDACTED"
-            }
-          ]
-        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "=application/json",
@@ -694,7 +686,13 @@
         -384
       ],
       "id": "2e093ef6-0f5c-4207-a9b7-2c1455db769b",
-      "name": "Slack — Order Not Found Alert"
+      "name": "Slack — Order Not Found Alert",
+      "credentials": {
+        "slackApi": {
+          "id": "jgz6RCjuACRpLKUS",
+          "name": "Slack Bot"
+        }
+      }
     },
     {
       "parameters": {

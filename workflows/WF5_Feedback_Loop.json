@@ -94,6 +94,7 @@
     },
     {
       "parameters": {
+        "modelName": "models/gemini-flash-lite-latest",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
@@ -106,7 +107,7 @@
       "name": "Google Gemini Chat Model",
       "credentials": {
         "googlePalmApi": {
-          "id": "lfuKF8ZZs91HysoW",
+          "id": "vBZtK9mc6LE88sOh",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -131,7 +132,7 @@
       "name": "Qdrant Vector Store",
       "credentials": {
         "qdrantApi": {
-          "id": "ROqsx76NqqlV9lhY",
+          "id": "CXSvhyTxYRXZ9xTp",
           "name": "Qdrant account 2"
         }
       }
@@ -150,7 +151,7 @@
       "name": "Embeddings Google Gemini",
       "credentials": {
         "googlePalmApi": {
-          "id": "lfuKF8ZZs91HysoW",
+          "id": "vBZtK9mc6LE88sOh",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -170,6 +171,8 @@
     },
     {
       "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
         "url": "https://slack.com/api/conversations.replies",
         "sendQuery": true,
         "queryParameters": {
@@ -184,15 +187,6 @@
             }
           ]
         },
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "REDACTED"
-            }
-          ]
-        },
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -202,7 +196,13 @@
         -192
       ],
       "id": "8819b99f-036e-4803-8d0e-e45e85e789e0",
-      "name": "Fetch Thread Reply"
+      "name": "Fetch Thread Reply",
+      "credentials": {
+        "slackApi": {
+          "id": "jgz6RCjuACRpLKUS",
+          "name": "Slack Bot"
+        }
+      }
     },
     {
       "parameters": {
@@ -220,7 +220,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "url": "https://n8n-389802584130.asia-northeast1.run.app/webhook/log-ticket",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  action: \"update\",\n  resolved: true,\n  ticket_id: $('Parse Slack Payload').item.json.ticket_id,\n  resolution_note: $('Extract Human Reply').item.json.human_answer ?? 'marked resolved by human agent'\n}) }}",
@@ -239,7 +239,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "url": "https://n8n-389802584130.asia-northeast1.run.app/webhook/log-ticket",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  action: \"update\",\n  resolved: true,\n  ticket_id: $('Parse Slack Payload').item.json.ticket_id,\n  resolution_note: \"marked resolved by human agent\"\n}) }}",

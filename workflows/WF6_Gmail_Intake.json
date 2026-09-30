@@ -26,7 +26,7 @@
       "name": "Gmail Trigger",
       "credentials": {
         "gmailOAuth2": {
-          "id": "57CzhnAFQ5yhq6A3",
+          "id": "tynRk8OPTdMrklDf",
           "name": "Gmail account"
         }
       }
@@ -125,7 +125,7 @@
       "webhookId": "dcaec1bf-96b7-4b6e-93a8-53ad82c21e00",
       "credentials": {
         "gmailOAuth2": {
-          "id": "57CzhnAFQ5yhq6A3",
+          "id": "tynRk8OPTdMrklDf",
           "name": "Gmail account"
         }
       }

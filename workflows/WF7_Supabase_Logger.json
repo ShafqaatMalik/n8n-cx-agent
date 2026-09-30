@@ -92,7 +92,7 @@
       "name": "Insert Support Log",
       "credentials": {
         "supabaseApi": {
-          "id": "8iFJgfZwL0caapYk",
+          "id": "oE3mYirS4TILBCUl",
           "name": "Supabase account"
         }
       }
@@ -148,7 +148,7 @@
       "name": "Update Ticket Resolved",
       "credentials": {
         "supabaseApi": {
-          "id": "8iFJgfZwL0caapYk",
+          "id": "oE3mYirS4TILBCUl",
           "name": "Supabase account"
         }
       }

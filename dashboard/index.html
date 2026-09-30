@@ -860,6 +860,12 @@ footer {
   30% { transform: translateY(-6px); opacity: 1; }
 }
 
+.typing-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
 /* Input */
 .chat-input-area {
   padding: 12px 16px 16px;
@@ -1203,13 +1209,18 @@ footer {
         </svg>
       </button>
     </div>
-    <div class="chat-footer-note">Powered by VoltShop AI · Responses are instant</div>
+    <div class="chat-footer-note">Powered by VoltShop AI · First reply may take up to a minute</div>
   </div>
 </div>
 
 <script>
 // ── CONFIGURATION ───────────────────────const───────────────────────────────────
-const WEBHOOK_URL = 'https://n8n-production-acb9.up.railway.app/webhook/ce7fb03a-8189-4574-b0fd-8cb1edbd5b09';
+const WEBHOOK_URL = 'https://n8n-389802584130.asia-northeast1.run.app/webhook/ce7fb03a-8189-4574-b0fd-8cb1edbd5b09';
+// n8n on Cloud Run scales to zero: while it boots, the webhook answers 404/502/503 for up to ~30s
+const WAKE_NOTE_AFTER_MS = 5000;
+const WAKE_RETRY_STATUSES = [404, 502, 503];
+const WAKE_RETRY_DELAY_MS = 3000;
+const WAKE_DEADLINE_MS = 90000;
 // ── CHAT STATE ─────────────────────────────────────────────────────────────
 let isOpen = false;
 let isTyping = false;
@@ -1247,18 +1258,16 @@ async function sendMessage() {
   appendMessage('user', text);
   hideQuickPrompts();
   showTyping();
+  const wakeTimer = setTimeout(showWakeNote, WAKE_NOTE_AFTER_MS);
 
   try {
-    const response = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chatInput: text,
-        sessionId: sessionId
-      })
+    const response = await postWithWakeRetry({
+      chatInput: text,
+      sessionId: sessionId
     });
 
     const data = await response.json();
+    clearTimeout(wakeTimer);
     hideTyping();
 
     // n8n chat trigger returns { output: "..." }
@@ -1267,6 +1276,7 @@ async function sendMessage() {
     appendMessage('bot', reply);
 
   } catch (err) {
+    clearTimeout(wakeTimer);
     hideTyping();
     appendMessage('bot', "I'm having trouble connecting right now. Please try again in a moment, or contact us at support@voltshop.com");
     console.error('Chat error:', err);
@@ -1315,6 +1325,33 @@ function showTyping() {
   `;
   container.appendChild(typing);
   container.scrollTop = container.scrollHeight;
+}
+
+// ── WAKE-UP (cold start) ───────────────────────────────────────────────────
+async function postWithWakeRetry(payload) {
+  const deadline = Date.now() + WAKE_DEADLINE_MS;
+  while (true) {
+    const response = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!WAKE_RETRY_STATUSES.includes(response.status) || Date.now() > deadline) {
+      if (!response.ok) throw new Error('Webhook HTTP ' + response.status);
+      return response;
+    }
+    showWakeNote();
+    await new Promise(r => setTimeout(r, WAKE_RETRY_DELAY_MS));
+  }
+}
+
+function showWakeNote() {
+  const t = document.getElementById('typingIndicator');
+  if (!t || t.querySelector('.typing-note')) return;
+  const note = document.createElement('div');
+  note.className = 'typing-note';
+  note.textContent = 'Waking up the agent…';
+  t.appendChild(note);
 }
 
 function hideTyping() {

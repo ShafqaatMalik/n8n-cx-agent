@@ -30,3 +30,6 @@ Thumbs.db
 
 # Logs
 *.log
+# Private working notes (contain credentials) and local backups
+n8n - CX agent building phases/
+backups/

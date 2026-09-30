@@ -11,9 +11,13 @@ import random
 import uuid
 import time
 import json
+import os
 from datetime import datetime
 
-WEBHOOK_URL = "https://n8n-production-acb9.up.railway.app/webhook/ce7fb03a-8189-4574-b0fd-8cb1edbd5b09"
+WEBHOOK_URL = os.environ.get(
+    "VOLTSHOP_WEBHOOK_URL",
+    "https://n8n-389802584130.asia-northeast1.run.app/webhook/ce7fb03a-8189-4574-b0fd-8cb1edbd5b09",
+)
 CONCURRENCY = 10
 REPEAT_EACH = 23
 

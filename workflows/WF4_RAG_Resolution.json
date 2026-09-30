@@ -17,6 +17,7 @@
     },
     {
       "parameters": {
+        "modelName": "models/gemini-flash-lite-latest",
         "options": {
           "topK": 5
         }
@@ -31,7 +32,7 @@
       "name": "Google Gemini Chat Model",
       "credentials": {
         "googlePalmApi": {
-          "id": "lfuKF8ZZs91HysoW",
+          "id": "vBZtK9mc6LE88sOh",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -60,7 +61,7 @@
       "name": "Qdrant Vector Store",
       "credentials": {
         "qdrantApi": {
-          "id": "ROqsx76NqqlV9lhY",
+          "id": "CXSvhyTxYRXZ9xTp",
           "name": "Qdrant account 2"
         }
       }
@@ -79,7 +80,7 @@
       "name": "Embeddings Google Gemini",
       "credentials": {
         "googlePalmApi": {
-          "id": "lfuKF8ZZs91HysoW",
+          "id": "vBZtK9mc6LE88sOh",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -157,17 +158,10 @@
     },
     {
       "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
         "method": "POST",
         "url": "https://slack.com/api/chat.postMessage",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "REDACTED"
-            }
-          ]
-        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -181,7 +175,13 @@
         -48
       ],
       "id": "b92cd8f1-1b6b-4c50-afd8-72e1bfd5647e",
-      "name": "Send to Slack"
+      "name": "Send to Slack",
+      "credentials": {
+        "slackApi": {
+          "id": "jgz6RCjuACRpLKUS",
+          "name": "Slack Bot"
+        }
+      }
     },
     {
       "parameters": {
@@ -328,7 +328,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "url": "https://n8n-389802584130.asia-northeast1.run.app/webhook/log-ticket",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -347,7 +347,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "url": "https://n8n-389802584130.asia-northeast1.run.app/webhook/log-ticket",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -401,7 +401,7 @@
       "name": "Write Cache",
       "credentials": {
         "supabaseApi": {
-          "id": "8iFJgfZwL0caapYk",
+          "id": "oE3mYirS4TILBCUl",
           "name": "Supabase account"
         }
       }

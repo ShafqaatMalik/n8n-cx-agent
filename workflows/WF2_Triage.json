@@ -17,6 +17,7 @@
     },
     {
       "parameters": {
+        "modelName": "models/gemini-flash-lite-latest",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
@@ -29,7 +30,7 @@
       "name": "Google Gemini Chat Model",
       "credentials": {
         "googlePalmApi": {
-          "id": "lfuKF8ZZs91HysoW",
+          "id": "vBZtK9mc6LE88sOh",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
@@ -195,17 +196,10 @@
     },
     {
       "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
         "method": "POST",
         "url": "https://slack.com/api/chat.postMessage",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "REDACTED"
-            }
-          ]
-        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "=application/json",
@@ -219,12 +213,18 @@
         192
       ],
       "id": "c5461622-2fd4-49d9-8523-e96a1caa86d5",
-      "name": "Send to Slack"
+      "name": "Send to Slack",
+      "credentials": {
+        "slackApi": {
+          "id": "jgz6RCjuACRpLKUS",
+          "name": "Slack Bot"
+        }
+      }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "url": "https://n8n-389802584130.asia-northeast1.run.app/webhook/log-ticket",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -501,6 +501,8 @@
     },
     {
       "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
         "url": "=https://yuucyvefubdwsqvevyen.supabase.co/rest/v1/response_cache",
         "sendQuery": true,
         "queryParameters": {
@@ -519,19 +521,6 @@
             }
           ]
         },
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "REDACTED"
-            },
-            {
-              "name": "Authorization",
-              "value": "REDACTED"
-            }
-          ]
-        },
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -542,7 +531,13 @@
       ],
       "id": "b5601412-0e66-4858-9b42-e82509391867",
       "name": "Check Cache",
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "oE3mYirS4TILBCUl",
+          "name": "Supabase account"
+        }
+      }
     },
     {
       "parameters": {
@@ -581,7 +576,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://n8n-production-acb9.up.railway.app/webhook/log-ticket",
+        "url": "https://n8n-389802584130.asia-northeast1.run.app/webhook/log-ticket",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -648,7 +643,7 @@
       "name": "Increment Hit Count",
       "credentials": {
         "supabaseApi": {
-          "id": "8iFJgfZwL0caapYk",
+          "id": "oE3mYirS4TILBCUl",
           "name": "Supabase account"
         }
       }

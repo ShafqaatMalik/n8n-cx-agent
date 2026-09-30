@@ -1,0 +1,118 @@
+# n8n on Cloud Run — deploy with:
+#   gcloud run services replace infra/cloudrun/service.yaml \
+#     --project=gen-lang-client-0762039552 --region=asia-northeast1
+# Secrets are referenced by name only (Secret Manager); no values in this file.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: n8n
+  labels:
+    cloud.googleapis.com/location: asia-northeast1
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        # Scale to zero; never more than one instance (a second copy would double-poll Gmail)
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "1"
+        # Instance-based billing: CPU stays allocated between requests (Gmail poller, WF5 background work)
+        run.googleapis.com/cpu-throttling: "false"
+        run.googleapis.com/startup-cpu-boost: "true"
+        run.googleapis.com/sessionAffinity: "true"
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      serviceAccountName: n8n-runtime@gen-lang-client-0762039552.iam.gserviceaccount.com
+      containerConcurrency: 80
+      timeoutSeconds: 3600
+      containers:
+        - name: n8n
+          image: docker.io/n8nio/n8n:2.17.7
+          ports:
+            - name: http1
+              containerPort: 5678
+          resources:
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          env:
+            # Database: Supabase Postgres via the session pooler (IPv4), own schema
+            - name: DB_TYPE
+              value: postgresdb
+            - name: DB_POSTGRESDB_HOST
+              value: aws-1-ap-northeast-1.pooler.supabase.com
+            - name: DB_POSTGRESDB_PORT
+              value: "5432"
+            - name: DB_POSTGRESDB_DATABASE
+              value: postgres
+            - name: DB_POSTGRESDB_USER
+              value: n8n_app.yuucyvefubdwsqvevyen
+            - name: DB_POSTGRESDB_SCHEMA
+              value: n8n
+            - name: DB_POSTGRESDB_POOL_SIZE
+              value: "2"
+            - name: DB_POSTGRESDB_SSL_ENABLED
+              value: "true"
+            # n8n reads the CA from a file only via the _FILE suffix
+            - name: DB_POSTGRESDB_SSL_CA_FILE
+              value: /certs/supabase-ca.crt
+            - name: DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED
+              value: "true"
+            - name: DB_POSTGRESDB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-db-password
+                  key: latest
+            - name: N8N_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-encryption-key
+                  key: latest
+            # Public URL behind Google's front end
+            - name: N8N_PORT
+              value: "5678"
+            - name: N8N_PROTOCOL
+              value: https
+            - name: N8N_HOST
+              value: n8n-389802584130.asia-northeast1.run.app
+            - name: WEBHOOK_URL
+              value: https://n8n-389802584130.asia-northeast1.run.app/
+            - name: N8N_EDITOR_BASE_URL
+              value: https://n8n-389802584130.asia-northeast1.run.app/
+            - name: N8N_PROXY_HOPS
+              value: "1"
+            - name: N8N_PUSH_BACKEND
+              value: websocket
+            # Cloud Run reserves paths ending in "z" (/healthz); warm-up uses /health
+            - name: N8N_ENDPOINT_HEALTH
+              value: health
+            - name: GENERIC_TIMEZONE
+              value: Asia/Karachi
+            - name: TZ
+              value: Asia/Karachi
+            # Keep n8n's tables well under Supabase's 500 MB
+            - name: EXECUTIONS_DATA_PRUNE
+              value: "true"
+            - name: EXECUTIONS_DATA_MAX_AGE
+              value: "168"
+            - name: EXECUTIONS_DATA_PRUNE_MAX_COUNT
+              value: "5000"
+            - name: N8N_DIAGNOSTICS_ENABLED
+              value: "false"
+            - name: N8N_VERSION_NOTIFICATIONS_ENABLED
+              value: "false"
+          volumeMounts:
+            - name: supabase-ca
+              mountPath: /certs
+              readOnly: true
+      volumes:
+        - name: supabase-ca
+          secret:
+            secretName: supabase-ca
+            items:
+              - key: latest
+                path: supabase-ca.crt
+  traffic:
+    - percent: 100
+      latestRevision: true
