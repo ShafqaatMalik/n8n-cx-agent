@@ -1,0 +1,49 @@
+name: Keep-alive — Supabase & Qdrant
+
+# Free tiers pause idle projects: Supabase after ~7 days, Qdrant Cloud suspends a
+# cluster after 1 week idle and deletes it after 4 weeks. Two read-only requests
+# per service, twice a week, keep both active. This job never calls n8n, never
+# creates tickets and never posts to Slack. A failure emails the repo owner.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1,4"  # Mon + Thu 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Read Supabase and Qdrant
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      QDRANT_URL: ${{ secrets.QDRANT_URL }}
+      QDRANT_API_KEY: ${{ secrets.QDRANT_READONLY_API_KEY }}
+
+    steps:
+      - name: Supabase — read one support_logs row
+        run: |
+          body=$(curl -sS --fail-with-body --retry 3 --retry-delay 10 \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/support_logs?select=ticket_id&limit=1")
+          echo "$body" | python3 -c "import json,sys; rows=json.load(sys.stdin); assert len(rows)==1, 'no rows returned'; print('Supabase OK')"
+
+      - name: Qdrant — read collection info
+        run: |
+          body=$(curl -sS --fail-with-body --retry 3 --retry-delay 10 \
+            -H "api-key: $QDRANT_API_KEY" \
+            "$QDRANT_URL/collections/voltshop_kb")
+          echo "$body" | python3 -c "import json,sys; r=json.load(sys.stdin)['result']; print('Qdrant OK:', r['status'], r['points_count'], 'points'); assert r['points_count'] > 0, 'collection is empty'"
+
+      - name: Qdrant — read one point (query activity)
+        run: |
+          curl -sS --fail-with-body --retry 3 --retry-delay 10 \
+            -H "api-key: $QDRANT_API_KEY" -H "Content-Type: application/json" \
+            -d '{"limit": 1, "with_payload": false, "with_vector": false}' \
+            "$QDRANT_URL/collections/voltshop_kb/points/scroll" \
+            | python3 -c "import json,sys; pts=json.load(sys.stdin)['result']['points']; assert len(pts)==1, 'scroll returned no points'; print('Qdrant scroll OK')"
