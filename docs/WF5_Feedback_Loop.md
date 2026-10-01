@@ -39,7 +39,7 @@ flowchart TD
 | Button | action_id value | What happens |
 |---|---|---|
 | Mark Resolved | `mark_resolved` | Ticket closed in Supabase only — WF7 UPDATE |
-| Resolve + Add to KB | `resolve_add_kb` | Fetch thread reply → Gemini FAQ → Qdrant upsert → WF7 UPDATE |
+| Resolve + Add to KB | `resolve_add_kb` | Fetch thread reply → Gemini FAQ → Qdrant insert (new point) → WF7 UPDATE |
 
 ## Key design decisions
 
@@ -48,7 +48,7 @@ flowchart TD
 - **Extract Human Reply guards against empty messages** — `const messages = data.messages || []` prevents crash when Slack thread has no replies
 - **Generate FAQ Entry prompt preserves full detail** — instructs Gemini: "preserve all key details, alternatives, and actionable suggestions from the human agent's answer — do not summarise or shorten". Earlier prompt was too concise and Gemini was truncating answers
 - **WF7 is called with `action: "update"`** — triggers the UPDATE route in WF7 (PATCH existing row), not INSERT
-- **Qdrant upsert uses Gemini Embedding 001** — same embedding model as the KB ingest script — ensures semantic consistency between ingested chunks and WF5-added points
+- **Qdrant insert uses Gemini Embedding 001** — same embedding model as the KB ingest script — ensures semantic consistency between ingested chunks and WF5-added points
 - **This closes the self-healing loop** — escalation → human resolution → KB update → future identical queries auto-resolve at ~800ms from cache
 - **WF5 is a webhook-based workflow** — it works whenever the Cloud Run instance is awake. A click that has to wake a scaled-to-zero instance fails, because Slack waits only 3 seconds and does not retry; warm up before demos
 - **Slack's Interactivity Request URL points at the Cloud Run n8n** — the WF5 webhook path on the `run.app` URL. A Slack app has one interactivity URL, so only one n8n instance can receive button clicks

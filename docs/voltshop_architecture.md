@@ -25,7 +25,7 @@ flowchart TD
 
     SL -->|Mark Resolved · Resolve + Add to KB| WF5
 
-    WF5["**WF5 — Feedback Loop**\nSlack button handler\nQdrant upsert · updates Supabase via WF7"]
+    WF5["**WF5 — Feedback Loop**\nSlack button handler\nQdrant insert · updates Supabase via WF7"]
 
     WF2 -->|log| WF7
     WF3 -->|log| WF7
