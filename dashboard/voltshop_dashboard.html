@@ -396,13 +396,13 @@ function Dashboard({d}){
 
 // ── App ───────────────────────────────────────────────────────────────────────
 function App(){
-  const[key,setKey]=useState("REDACTED");
+  const[key,setKey]=useState("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1dWN5dmVmdWJkd3NxdmV2eWVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMzExMjEsImV4cCI6MjA4ODcwNzEyMX0.cJwvc9Qa6QpubDkMhXNDGnUWeBiNG0gRJ2MDRnRrEiU");
   const[loading,setLoading]=useState(false);
   const[error,setError]=useState(null);
   const[data,setData]=useState(null);
   const[connKey,setConnKey]=useState("");
   const[fetched,setFetched]=useState(null);
-  useEffect(()=>{load("REDACTED");},[]);
+  useEffect(()=>{load("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1dWN5dmVmdWJkd3NxdmV2eWVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMzExMjEsImV4cCI6MjA4ODcwNzEyMX0.cJwvc9Qa6QpubDkMhXNDGnUWeBiNG0gRJ2MDRnRrEiU");},[]);
   async function load(k){
     setLoading(true);setError(null);
     try{
