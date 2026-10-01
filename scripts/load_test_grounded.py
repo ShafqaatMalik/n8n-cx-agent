@@ -108,7 +108,7 @@ async def send_ticket(client: httpx.AsyncClient, message: str, idx: int) -> None
 
 async def main():
     print(f"\n{'='*60}")
-    print(f"VoltShop — Grounded RAG Load Test")
+    print("VoltShop — Grounded RAG Load Test")
     print(f"Unique questions : {len(MESSAGES)}")
     print(f"Repeat each      : {REPEAT_EACH}x")
     print(f"Total tickets    : {TOTAL_TICKETS}")
@@ -142,7 +142,7 @@ async def main():
     success_rate = (results["success"] / results["total"] * 100) if results["total"] > 0 else 0
 
     print(f"\n{'='*60}")
-    print(f"RESULTS")
+    print("RESULTS")
     print(f"{'='*60}")
     print(f"Total sent       : {results['total']}")
     print(f"Successful       : {results['success']}")
@@ -182,7 +182,7 @@ async def main():
     with open("load_test_grounded_results.json", "w") as f:
         json.dump(output, f, indent=2)
 
-    print(f"\nResults saved to load_test_grounded_results.json")
+    print("\nResults saved to load_test_grounded_results.json")
     print(f"{'='*60}\n")
 
 

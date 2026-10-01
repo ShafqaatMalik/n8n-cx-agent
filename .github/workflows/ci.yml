@@ -6,36 +6,42 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   validate:
-    name: Validate Workflow JSONs
+    name: Validate, lint and guard
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install CI tools
+        run: pip install flake8 pyyaml
+
       - name: Validate workflow JSON files
         run: |
-          echo "Validating workflow JSON files..."
           failed=0
           for file in workflows/*.json; do
-            if python3 -c "import json; json.load(open('$file'))" 2>/dev/null; then
+            if python -c "import json, sys; json.load(open(sys.argv[1]))" "$file"; then
               echo "✓ $file"
             else
               echo "✗ $file — invalid JSON"
               failed=1
             fi
           done
-          if [ $failed -eq 1 ]; then
-            echo "One or more workflow JSON files are invalid."
-            exit 1
-          fi
-          echo "All workflow JSON files are valid."
+          exit $failed
 
-      - name: Check required workflow files exist
+      - name: Check required files exist
         run: |
-          echo "Checking required workflow files..."
           required=(
             "workflows/WF2_Triage.json"
             "workflows/WF3_Action_Layer.json"
@@ -43,40 +49,22 @@ jobs:
             "workflows/WF5_Feedback_Loop.json"
             "workflows/WF6_Gmail_Intake.json"
             "workflows/WF7_Supabase_Logger.json"
-          )
-          failed=0
-          for file in "${required[@]}"; do
-            if [ -f "$file" ]; then
-              echo "✓ $file exists"
-            else
-              echo "✗ $file missing"
-              failed=1
-            fi
-          done
-          if [ $failed -eq 1 ]; then
-            echo "One or more required workflow files are missing."
-            exit 1
-          fi
-          echo "All required workflow files present."
-
-      - name: Check required docs exist
-        run: |
-          echo "Checking documentation files..."
-          required=(
+            "infra/cloudrun/service.yaml"
+            "netlify.toml"
+            ".flake8"
+            ".github/workflows/keepalive.yml"
+            "scripts/ci_guard.py"
             "docs/voltshop_architecture.md"
             "README.md"
           )
           failed=0
           for file in "${required[@]}"; do
-            if [ -f "$file" ]; then
-              echo "✓ $file exists"
-            else
-              echo "✗ $file missing"
-              failed=1
-            fi
+            if [ -f "$file" ]; then echo "✓ $file"; else echo "✗ $file missing"; failed=1; fi
           done
-          if [ $failed -eq 1 ]; then
-            echo "One or more required documentation files are missing."
-            exit 1
-          fi
-          echo "All documentation files present."
+          exit $failed
+
+      - name: Lint scripts (flake8)
+        run: flake8 scripts/
+
+      - name: Guard — no secrets, no Railway/ngrok, real credential ids, safe Cloud Run config
+        run: python scripts/ci_guard.py

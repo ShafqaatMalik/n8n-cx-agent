@@ -105,6 +105,7 @@ MESSAGES = [
     ("refund_no_match", "I want my money back for order #44444"),
 ]
 
+
 # Build weighted pool — RAG 50%, ungrounded 15%, escalation 15%, order 10%, refund 10%
 def build_ticket_pool():
     pool = []
@@ -129,6 +130,7 @@ def build_ticket_pool():
 
     random.shuffle(pool)
     return pool
+
 
 results = {
     "total": 0,
@@ -176,10 +178,10 @@ async def send_ticket(client: httpx.AsyncClient, message: str, intent: str, idx:
 
 async def main():
     print(f"\n{'='*60}")
-    print(f"VoltShop CX Agent — Final Mixed Load Test")
+    print("VoltShop CX Agent — Final Mixed Load Test")
     print(f"Total tickets : {TOTAL_TICKETS}")
     print(f"Concurrency   : {CONCURRENCY}")
-    print(f"Distribution  : 50% RAG | 15% ungrounded | 15% escalation | 10% order | 10% refund")
+    print("Distribution  : 50% RAG | 15% ungrounded | 15% escalation | 10% order | 10% refund")
     print(f"Started       : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'='*60}\n")
 
@@ -208,7 +210,7 @@ async def main():
     success_rate = (results["success"] / results["total"] * 100) if results["total"] > 0 else 0
 
     print(f"\n{'='*60}")
-    print(f"RESULTS")
+    print("RESULTS")
     print(f"{'='*60}")
     print(f"Total sent     : {results['total']}")
     print(f"Successful     : {results['success']}")
@@ -224,9 +226,9 @@ async def main():
     print(f"Max latency    : {max(latencies):.0f}ms")
 
     if results["errors"]:
-        print(f"\nFirst 5 errors:")
+        print("\nFirst 5 errors:")
         for err in results["errors"][:5]:
-            print(f"  [{err['idx']}] [{err.get('intent','?')}] {err.get('error', err.get('status','?'))}")
+            print(f"  [{err['idx']}] [{err.get('intent', '?')}] {err.get('error', err.get('status', '?'))}")
 
     output = {
         "timestamp": datetime.now().isoformat(),
@@ -252,7 +254,7 @@ async def main():
     with open("load_test_mixed_results.json", "w") as f:
         json.dump(output, f, indent=2)
 
-    print(f"\nResults saved to load_test_mixed_results.json")
+    print("\nResults saved to load_test_mixed_results.json")
     print(f"{'='*60}\n")
 
 
