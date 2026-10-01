@@ -34,6 +34,8 @@ FORBIDDEN = {
     "JWT (Supabase/n8n key)": re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
     "Google API key": re.compile(r"AIza[0-9A-Za-z_-]{30,}"),
 }
+# (file name, rule) pairs that legitimately mention a pattern: the deploy script refuses REDACTED files
+ALLOWED = {("deploy_workflows.py", "redaction leftover")}
 CREDENTIAL_ID = re.compile(r"^[A-Za-z0-9]{16}$")
 PINNED_N8N_IMAGE = re.compile(r"n8nio/n8n:\d+\.\d+\.\d+$")
 
@@ -46,6 +48,8 @@ def scan_files(root):
                 continue
             text = path.read_text(encoding="utf-8", errors="ignore")
             for label, pattern in FORBIDDEN.items():
+                if (path.name, label) in ALLOWED:
+                    continue
                 for match in pattern.finditer(text):
                     line = text.count("\n", 0, match.start()) + 1
                     problems.append(f"{path.relative_to(root)}:{line}: {label}")

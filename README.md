@@ -1,7 +1,8 @@
 # VoltShop CX Agent
 
 [![CI — Validate Workflows](https://github.com/ShafqaatMalik/n8n-cx-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/ShafqaatMalik/n8n-cx-agent/actions/workflows/ci.yml)
-[![CD — Deploy to Railway](https://github.com/ShafqaatMalik/n8n-cx-agent/actions/workflows/cd.yml/badge.svg)](https://github.com/ShafqaatMalik/n8n-cx-agent/actions/workflows/cd.yml)
+[![CD — Deploy to Cloud Run](https://github.com/ShafqaatMalik/n8n-cx-agent/actions/workflows/cd.yml/badge.svg)](https://github.com/ShafqaatMalik/n8n-cx-agent/actions/workflows/cd.yml)
+[![Keep-alive](https://github.com/ShafqaatMalik/n8n-cx-agent/actions/workflows/keepalive.yml/badge.svg)](https://github.com/ShafqaatMalik/n8n-cx-agent/actions/workflows/keepalive.yml)
 
 A production-grade AI customer support automation system. Multi-channel intake (chat webhook, Gmail), agentic RAG over a self-healing Qdrant knowledge base, transactional action handling against live Shopify and Stripe sandboxes, human-in-the-loop escalation via Slack, and real-time observability through a Supabase-backed analytics dashboard — deployed on Railway with full CI/CD.
 
