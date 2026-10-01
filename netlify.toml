@@ -1,6 +1,9 @@
 # Static site, no build step. dashboard/ is served at the site root:
 #   /                          -> dashboard/index.html (storefront + VoltBot)
 #   /voltshop_dashboard.html   -> dashboard/voltshop_dashboard.html (analytics)
+# base = dashboard so Netlify never sees the repo-root requirements.txt and
+# skips Python dependency installation; publish is relative to base.
 [build]
-  publish = "dashboard"
+  base = "dashboard"
+  publish = "."
   command = ""
