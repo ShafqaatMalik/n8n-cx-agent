@@ -230,7 +230,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({  ticket_id: $('Set Ticket ID').first().json.ticket_id,  channel: 'chat',  customer_id: $('Normalize Input').first().json.sessionId ?? 'unknown',  message: $('Normalize Input').first().json.chatInput ?? '',  intent: \"escalated\",  confidence: 1,  grounded: false,  escalated: true,  resolved: false,  resolution_note: null,  rag_answer: $('Escalation Response').first().json.output ?? '',  response_ms: $now.toMillis() - $('Normalize Input').first().json.start_time}) }}",
+        "body": "={{ JSON.stringify({  ticket_id: $('Set Ticket ID').first().json.ticket_id,  channel: 'chat',  customer_id: $('Normalize Input').first().json.sessionId ?? 'unknown',  message: $('Normalize Input').first().json.chatInput ?? '',  intent: \"escalated\",  confidence: 1,  grounded: false,  escalated: true,  resolved: false,  resolution_note: null,  rag_answer: $('Escalation Response').first().json.output ?? '',  response_ms: $now.toMillis() - $('Normalize Input').first().json.start_time, source: 'wf2', route: 'escalated'}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

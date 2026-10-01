@@ -703,7 +703,7 @@
             {
               "id": "83232796-30b0-4976-a642-2c75fe600d4d",
               "name": "output",
-              "value": "=={{ $('Refund Success Response').first().json.response }}",
+              "value": "={{ $('Refund Success Response').first().json.response }}",
               "type": "string"
             }
           ]
