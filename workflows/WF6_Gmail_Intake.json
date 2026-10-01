@@ -42,6 +42,18 @@
               "type": "string"
             },
             {
+              "id": "f39ba13a-12bd-48d0-aaff-1367475ded12",
+              "name": "raw_message",
+              "value": "={{ $json.snippet }}",
+              "type": "string"
+            },
+            {
+              "id": "c4567d3d-96cd-451a-980c-52bfa5625077",
+              "name": "intent",
+              "value": "general",
+              "type": "string"
+            },
+            {
               "id": "785284f7-991e-4b20-b680-4c737e8a877d",
               "name": "channel",
               "value": "email",
