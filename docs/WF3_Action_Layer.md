@@ -57,9 +57,9 @@ flowchart TD
 | Check Match Found | IF | Branches on non-null `charge_id` |
 | Refund Threshold Check | IF | `auto_approve = amount <= 5000` (cents = $50) |
 | Stripe Process Refund | HTTP Request | POST refund against matched charge |
-| Slack — Request Approval | HTTP Request | Block Kit message for refund_pending — `Authorization: Bearer xoxb-...` header |
-| Slack — No Match Alert | HTTP Request | Block Kit message for no_match — `Authorization: Bearer xoxb-...` header |
-| Slack — Order Not Found Alert | HTTP Request | Block Kit message for order_not_found — `Authorization: Bearer xoxb-...` header |
+| Slack — Request Approval | HTTP Request | Block Kit message for refund_pending — `Slack Bot` credential |
+| Slack — No Match Alert | HTTP Request | Block Kit message for no_match — `Slack Bot` credential |
+| Slack — Order Not Found Alert | HTTP Request | Block Kit message for order_not_found — `Slack Bot` credential |
 | WF7 log nodes (×4) | HTTP Request | One per route exit — refund_success, refund_pending, no_match, order_not_found — sets `source: wf3` and `route` field |
 
 ## Routes
@@ -73,11 +73,11 @@ flowchart TD
 
 ## Key design decisions
 
-- **Shopify uses httpMultipleHeadersAuth** — n8n's native Shopify credential type was incompatible with the Railway deployment. Shopify nodes use HTTP Request with `X-Shopify-Access-Token` header via the Multiple Headers Auth credential
+- **Shopify uses httpMultipleHeadersAuth** — n8n's native Shopify credential type did not work in this setup. Shopify nodes use HTTP Request with `X-Shopify-Access-Token` header via the Multiple Headers Auth credential
 - **Check Missing Entities blocks on order_id only** — email was originally required but removed; it caused unnecessary friction on order queries where only order_id is needed for Shopify lookup. Uses `does not exist` operator (not `is empty`) to catch null and undefined
 - **Ask Customer for Details requests order number only** — prompt updated to remove email requirement after email gate was removed
 - **Stripe query uses limit=100 with customer filter** — avoids pagination gaps on accounts with many charges
 - **Refund threshold is $50** — orders above this require manual Slack approval; below auto-process via Stripe API
 - **All 4 exit paths log to WF7** with `source: wf3` and `route` field set — enables per-route analytics in the dashboard and correctly separates transactional tickets from RAG tickets
-- **All 3 Slack nodes use Authorization header** — `Authorization: Bearer xoxb-...` hardcoded in Send Headers — not using n8n Generic Auth which was failing silently with `not_authed`
+- **All 3 Slack nodes authenticate through the `Slack Bot` credential** — HTTP Request with the predefined Slack API credential type. Until the Cloud Run migration the bot token was hardcoded in an `Authorization` header, which workflow exports replaced with `REDACTED` and which then broke on deploy; the credential store fixes that
 - **`onError: continueRegularOutput`** on all 4 log nodes — logging failures never block the customer-facing response

@@ -6,12 +6,12 @@
 
 ```mermaid
 flowchart TD
-    A([Slack Button Click\nRailway n8n webhook]) --> B[Parse Slack Payload\nExtract action_id + ticket_id + thread_ts\ncustomer_message + ai_response]
+    A([Slack Button Click\nCloud Run n8n webhook]) --> B[Parse Slack Payload\nExtract action_id + ticket_id + thread_ts\ncustomer_message + ai_response]
     B --> C{action_id?}
 
     C -->|mark_resolved| D[Mark Ticket Resolved1\nHTTP POST to WF7\naction=update · resolved=true]
 
-    C -->|resolve_add_kb| E[Fetch Thread Reply\nGET conversations.replies\nchannel=C0AG97YAYP2\nBearer token header]
+    C -->|resolve_add_kb| E[Fetch Thread Reply\nGET conversations.replies\nchannel=C0AG97YAYP2\nSlack Bot credential]
     E --> F[Extract Human Reply\nCode node\nFilter bot messages\nhuman_answer = latest non-bot reply]
     F --> G[Generate FAQ Entry\nGemini prompt\nPreserve full detail from human_answer]
     G --> H[Qdrant Vector Store\nUpsert FAQ into voltshop_kb]
@@ -24,11 +24,11 @@ flowchart TD
 
 | Node | Type | Purpose |
 |---|---|---|
-| Webhook | Trigger | Receives Slack interactive button POST — Railway n8n public webhook URL |
+| Webhook | Trigger | Receives Slack interactive button POST — public n8n webhook URL on Cloud Run |
 | Parse Slack Payload | Code | Extracts `action_id`, `ticket_id` (from button value), `customer_message`, `ai_response`, `thread_ts` from Slack payload |
 | Route by Action | Switch | Routes on `action_id`: `mark_resolved` or `resolve_add_kb` |
 | Mark Ticket Resolved1 | HTTP Request | POSTs to WF7 log-ticket webhook with `action: "update"`, `resolved: true` — mark_resolved path |
-| Fetch Thread Reply | HTTP Request | GET `https://slack.com/api/conversations.replies` with `channel=C0AG97YAYP2` (fixed value) and `ts=$json.thread_ts` — `Authorization: Bearer xoxb-...` hardcoded in Send Headers |
+| Fetch Thread Reply | HTTP Request | GET `https://slack.com/api/conversations.replies` with `channel=C0AG97YAYP2` (fixed value) and `ts=$json.thread_ts` — `Slack Bot` credential |
 | Extract Human Reply | Code | Filters `messages` array for `!msg.bot_id` — returns `human_answer = latestReply.text`; returns `null` if no human reply found |
 | Generate FAQ Entry | AI | Gemini prompt — synthesises clean FAQ entry from `customer_message` + `human_answer`; instructs Gemini to preserve full detail without summarising |
 | Qdrant Vector Store | Vector Store | Upserts generated FAQ as new point into `voltshop_kb` collection with Gemini embeddings |
@@ -44,11 +44,11 @@ flowchart TD
 ## Key design decisions
 
 - **Fetch Thread Reply uses hardcoded channel** — `channel` query parameter is fixed to `C0AG97YAYP2`. Using a dynamic expression caused `channel_not_found` errors because `$json.channel_id` was undefined in the Parse Slack Payload output
-- **Fetch Thread Reply uses Send Headers for auth** — `Authorization: Bearer xoxb-...` hardcoded directly in Send Headers; Generic Credential Type Header Auth was not sending the token correctly
+- **Fetch Thread Reply authenticates through the `Slack Bot` credential** — HTTP Request with the predefined Slack API credential type. Until the Cloud Run migration the bot token was hardcoded in an `Authorization` header, which workflow exports replaced with `REDACTED` and which then broke on deploy; the credential store fixes that
 - **Extract Human Reply guards against empty messages** — `const messages = data.messages || []` prevents crash when Slack thread has no replies
 - **Generate FAQ Entry prompt preserves full detail** — instructs Gemini: "preserve all key details, alternatives, and actionable suggestions from the human agent's answer — do not summarise or shorten". Earlier prompt was too concise and Gemini was truncating answers
 - **WF7 is called with `action: "update"`** — triggers the UPDATE route in WF7 (PATCH existing row), not INSERT
 - **Qdrant upsert uses Gemini Embedding 001** — same embedding model as the KB ingest script — ensures semantic consistency between ingested chunks and WF5-added points
 - **This closes the self-healing loop** — escalation → human resolution → KB update → future identical queries auto-resolve at ~800ms from cache
-- **WF5 is a webhook-based workflow** — unaffected by Railway container restarts (unlike polling-based triggers)
-- **Slack button callbacks reach WF5 via Railway webhook** — in production the WF5 webhook URL is the Railway n8n public URL. No ngrok required in production
+- **WF5 is a webhook-based workflow** — it works whenever the Cloud Run instance is awake. A click that has to wake a scaled-to-zero instance fails, because Slack waits only 3 seconds and does not retry; warm up before demos
+- **Slack's Interactivity Request URL points at the Cloud Run n8n** — the WF5 webhook path on the `run.app` URL. A Slack app has one interactivity URL, so only one n8n instance can receive button clicks

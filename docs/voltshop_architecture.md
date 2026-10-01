@@ -74,5 +74,5 @@ flowchart TD
 - WF6 bypasses WF2 and calls WF4 directly — email is always a RAG-first flow
 - WF3 only fires for explicit transactional intents — classification prompt enforces this
 - WF7 is the only workflow that writes to Supabase — single writer pattern prevents race conditions
-- Slack button callbacks travel: Slack → Railway n8n → WF5 webhook (production — no ngrok)
+- Slack button callbacks travel: Slack → Cloud Run n8n → WF5 webhook (the instance must be awake — Slack waits only 3 s)
 - All 3 WF2 exit paths (escalation, action, RAG) have dedicated Respond to Webhook nodes

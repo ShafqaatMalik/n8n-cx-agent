@@ -7,7 +7,7 @@
 ```mermaid
 flowchart TD
     A([Called by WF2 rag intent\nor WF6 Gmail Intake]) --> B[Generate Ticket ID\nEpoch ms · capture start_time · channel]
-    B --> C[AI Agent\nGenerate RAG Response\nGemini 2.5 Flash + Qdrant tool]
+    B --> C[AI Agent\nGenerate RAG Response\nGemini Flash-Lite + Qdrant tool]
     C --> D[Parse Confidence\nExtract CONFIDENCE 1-5\nGROUNDED true/false\nPass queryHash + normalizedQuery\nStrip metadata from response]
     D --> E[Route by Confidence]
 
@@ -19,7 +19,7 @@ flowchart TD
     I --> J[Return Output]
 
     G --> K[Build Request Payload\nCode node\nSlack Block Kit + channel/customer_id/intent/response_ms]
-    K --> L[Send to Slack\n#support-escalations\nBearer token header]
+    K --> L[Send to Slack\n#support-escalations\nSlack Bot credential]
     L --> M[Log to Supabase Escalated\nroute=escalated · grounded=false · escalated=true]
     M --> N[Return Output Escalated]
 ```
@@ -32,8 +32,8 @@ flowchart TD
 |---|---|---|
 | When Executed by Another Workflow | Execute Workflow Trigger | Receives context from WF2 or WF6 |
 | Generate Ticket ID | Set | Creates epoch ms ticket ID, captures `start_time`, extracts `chatInput`, `channel`, `customer_id` |
-| AI Agent (Generate RAG Response) | AI Agent | Gemini 2.5 Flash with Qdrant Vector Store as retrieval tool |
-| Google Gemini Chat Model | LM | Gemini 2.5 Flash |
+| AI Agent (Generate RAG Response) | AI Agent | Gemini Flash-Lite with Qdrant Vector Store as retrieval tool |
+| Google Gemini Chat Model | LM | `models/gemini-flash-lite-latest`, temperature 0, topK 5 |
 | Qdrant Vector Store | Vector Store | `voltshop_kb` collection, `content` field, 3072-dim cosine, retrieve-as-tool mode |
 | Embeddings Google Gemini | Embeddings | Gemini Embedding 001 — attached to Qdrant store |
 | Parse Confidence | Code | Regex extracts `CONFIDENCE: [1-5]` and `GROUNDED: [true/false]` from agent output, strips metadata from customer response, passes `queryHash` and `normalizedQuery` to downstream nodes |
@@ -43,7 +43,7 @@ flowchart TD
 | Log to Supabase | HTTP Request | Logs confident ticket to WF7 log-ticket webhook — `route: confident`, `source: wf4`, `escalated: false` |
 | Return Output | Set | Final output node for WF2 caller on confident path |
 | Build Request Payload | Code | Constructs Slack Block Kit JSON with interactive buttons — enriches payload with `channel`, `customer_id`, `intent`, `route`, `response_ms` from upstream nodes |
-| Send to Slack | HTTP Request | Posts to #support-escalations with `ticket_id` as button value — `Authorization: Bearer xoxb-...` header |
+| Send to Slack | HTTP Request | Posts to #support-escalations with `ticket_id` as button value — `Slack Bot` credential |
 | Log to Supabase (Escalated) | HTTP Request | Logs escalated ticket to WF7 log-ticket webhook — `route: escalated`, `source: wf4`, `escalated: true` — references `Build Request Payload` node for all fields |
 | Return Output (Escalated) | Set | Final output node for escalated path — references `Build Request Payload.first().json.output` |
 
@@ -64,6 +64,6 @@ flowchart TD
 - **Cache expires_at is hardcoded to 2027-01-01** — not a rolling TTL. All cache entries share the same expiry date
 - **Log to Supabase (Escalated) references Build Request Payload** — positioned after Send to Slack; uses `$('Build Request Payload').first().json.*` expressions to access original data since `$json` at that point contains the Slack API response
 - **Build Request Payload enriches the log payload** — adds `channel`, `customer_id`, `intent`, `route: "escalated"`, `response_ms = Date.now() - parseInt(ticket_id)` to the Slack payload and log body
-- **Send to Slack uses Authorization header** — `Authorization: Bearer xoxb-...` hardcoded in Send Headers — not using n8n Generic Auth which was failing with `not_authed`
+- **Send to Slack authenticates through the `Slack Bot` credential** — HTTP Request with the predefined Slack API credential type. Until the Cloud Run migration the bot token was hardcoded in an `Authorization` header, which workflow exports replaced with `REDACTED` and which then broke on deploy; the credential store fixes that
 - **AI Agent prompt updated** — instructs Gemini to preserve full KB detail without summarising, and uses accurate CONFIDENCE/GROUNDED scale descriptions based on KB retrieval quality
 - **Self-healing loop** — escalated tickets resolved via WF5 upsert new Qdrant points — identical future queries auto-resolve without human intervention

@@ -18,7 +18,7 @@ flowchart TD
     G --> H[Respond to Webhook\nCache Hit]
     H --> I[Increment Hit Count\nSupabase Update Row\nhit_count+1 · updated_at=now]
 
-    F -->|no| J[AI Agent\nClassify Intent\nGemini 2.5 Flash]
+    F -->|no| J[AI Agent\nClassify Intent\nGemini Flash-Lite]
     J --> K{Intent?}
 
     K -->|action\norder or refund| L[Parse Context WF3\nCall WF3 Action Layer]
@@ -40,12 +40,12 @@ flowchart TD
 | When chat message received | Chat Trigger | Native n8n chat interface trigger |
 | Normalize Input | Code | Extracts `chatInput`, `sessionId`, `start_time` — trigger-agnostic output |
 | Hash Query | Code | djb2 hash over lowercased, whitespace-collapsed query → 8-char hex digest |
-| Check Cache | HTTP Request | GET from `response_cache` where `query_hash=eq.X AND expires_at=gt.now()` |
+| Check Cache | HTTP Request | GET from `response_cache` where `query_hash=eq.X AND expires_at=gt.now()` — authenticated with the `Supabase account` credential (service role) |
 | Cache Hit | IF | Branches on non-empty `response` field |
 | Log to Supabase1 | HTTP Request | Logs cache hit ticket with real `response_ms` to WF7 log-ticket webhook |
 | Respond to Webhook — Cache Hit | Respond to Webhook | Returns cached response immediately |
 | Increment Hit Count | Supabase Update a Row | Updates `hit_count + 1` and `updated_at = now()` on matching `response_cache` row |
-| AI Agent (Classify Intent) | AI Agent | Gemini 2.5 Flash — classifies into `escalate`, `action`, or `rag` |
+| AI Agent (Classify Intent) | AI Agent | Gemini Flash-Lite (temperature 0) — classifies into `escalate`, `action`, or `rag` |
 | Parse Context WF3 | Set | Prepares ticket_id, message, intent, sentiment, urgency for WF3 |
 | Parse Context WF4 | Set | Prepares ticket context + `queryHash` + `normalizedQuery` for WF4 cache write |
 | Call WF3 — Action Layer | Execute Workflow | Sub-workflow call — synchronous, waits for response |

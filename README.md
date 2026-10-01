@@ -4,7 +4,7 @@
 [![CD — Deploy to Cloud Run](https://github.com/ShafqaatMalik/n8n-cx-agent/actions/workflows/cd.yml/badge.svg)](https://github.com/ShafqaatMalik/n8n-cx-agent/actions/workflows/cd.yml)
 [![Keep-alive](https://github.com/ShafqaatMalik/n8n-cx-agent/actions/workflows/keepalive.yml/badge.svg)](https://github.com/ShafqaatMalik/n8n-cx-agent/actions/workflows/keepalive.yml)
 
-A production-grade AI customer support automation system. Multi-channel intake (chat webhook, Gmail), agentic RAG over a self-healing Qdrant knowledge base, transactional action handling against live Shopify and Stripe sandboxes, human-in-the-loop escalation via Slack, and real-time observability through a Supabase-backed analytics dashboard — deployed on Railway with full CI/CD.
+A production-grade AI customer support automation system. Multi-channel intake (chat webhook, Gmail), agentic RAG over a self-healing Qdrant knowledge base, transactional action handling against live Shopify and Stripe sandboxes, human-in-the-loop escalation via Slack, and real-time observability through a Supabase-backed analytics dashboard — running on Google Cloud Run (scale to zero, free tier) with full CI/CD.
 
 **[Live Demo](https://verdant-kringle-543ae3.netlify.app)** · **[Analytics Dashboard](https://verdant-kringle-543ae3.netlify.app/voltshop_dashboard.html)** · **[Demo Video](https://github.com/ShafqaatMalik/n8n-cx-agent/releases/download/v1.0/VoltShop_Demo_Final.mp4)**
 
@@ -69,17 +69,18 @@ The architecture is intentionally modular: each workflow owns a single responsib
 
 | Layer | Technology |
 |---|---|
-| Workflow orchestration | n8n (self-hosted, Railway) |
-| LLM | Google Gemini 2.5 Flash |
-| Vector store | Qdrant Cloud (Frankfurt, GCP) |
+| Workflow orchestration | n8n 2.17.7 (official image, pinned) on Google Cloud Run — Tokyo (`asia-northeast1`) |
+| n8n's own database | Supabase Postgres (Tokyo), separate `n8n` schema, via the session pooler |
+| LLM | Google Gemini `gemini-flash-lite-latest`, temperature 0 (free-tier API key) |
+| Vector store | Qdrant Cloud free tier (Frankfurt, GCP) |
 | Embeddings | Gemini Embedding 001 (3072 dims) |
-| Database | Supabase (Postgres) |
+| Ticket store | Supabase (Postgres) — `support_logs`, `response_cache` |
 | Messaging | Slack (interactive buttons) |
 | Email | Gmail (OAuth2, poll trigger) |
-| Commerce | Shopify Admin API, Stripe API |
-| Frontend | Vanilla HTML/CSS/JS — Netlify |
-| CI/CD | GitHub Actions |
-| Deployment | Railway (n8n), Netlify (frontend) |
+| Commerce | Shopify Admin API, Stripe API (sandboxes) |
+| Frontend | Vanilla HTML/CSS/JS — Netlify, deployed from GitHub |
+| Secrets | n8n credential store (service keys), Google Secret Manager (deploy secrets), GitHub Secrets (CI/CD) |
+| CI/CD | GitHub Actions — CI, CD to Cloud Run (Workload Identity Federation), keep-alive |
 
 ---
 
@@ -88,14 +89,15 @@ The architecture is intentionally modular: each workflow owns a single responsib
 | Component | Choice | Rationale |
 |---|---|---|
 | Orchestration | n8n | Visual debuggability, native sub-workflow protocol, credential isolation per node. LangGraph considered but adds Python complexity without benefit for a workflow-first system. |
-| LLM | Gemini 2.5 Flash | Low latency, strong instruction following, generous free tier RPM for development. GPT-4o considered but cost-prohibitive at load test volumes. |
+| LLM | Gemini Flash-Lite (`-latest` alias) | Low latency, strong instruction following, free tier. The model that worked reliably on this project's free-tier key: gemini-2.5-flash was refused and 3.x preview models returned 503s (see Known Limitations). GPT-4o considered but cost-prohibitive at load test volumes. |
 | Vector store | Qdrant Cloud | Cosine similarity, payload filtering, free managed tier with 3072-dim support. Pinecone considered but Qdrant's self-hostability is a production migration path. |
 | Embeddings | Gemini Embedding 001 | 3072 dimensions, same provider as LLM, no additional credential. OpenAI embeddings considered but cross-provider dependency adds failure surface. |
 | Database | Supabase (Postgres) | Structured logging, RLS, REST API without ORM overhead. Native Postgres means no migration risk if moving off Supabase. |
 | Cache hash | djb2 | O(n) string hash, no crypto module dependency in n8n Code node, deterministic collision resistance sufficient for query-length strings. MD5 considered but requires Node crypto which has n8n version inconsistencies. |
-| Deployment | Railway | Persistent containers, native WebSocket support for n8n UI. Cloud Run rejected — incompatible with n8n's WebSocket/SSE origin checks behind GCP proxy. |
-| Frontend | Vanilla HTML/CSS/JS | No build pipeline, no framework dependency, instant Netlify deploy. React considered but adds unnecessary complexity for a static demo storefront. |
-| CI/CD | GitHub Actions | n8n's native Git integration requires an Enterprise plugin unavailable on Railway free tier. REST API push via Actions is portable and plugin-free. |
+| Deployment | Google Cloud Run | Scales to zero, so an idle demo costs nothing; one pinned container; HTTPS and WebSockets built in. An earlier attempt was rejected because the n8n editor stayed "offline" — see [Why Cloud Run works now](#why-cloud-run-works-now). |
+| n8n database | Supabase Postgres (own schema) | Cloud Run containers are stateless, so n8n's workflows, credentials and executions must live in an external database. Reusing the existing Supabase project avoids paying for Cloud SQL. |
+| Frontend | Vanilla HTML/CSS/JS | No build pipeline, no framework dependency; Netlify serves the `dashboard/` folder straight from GitHub. React considered but adds unnecessary complexity for a static demo storefront. |
+| CI/CD | GitHub Actions | n8n's native Git integration requires an Enterprise licence. Pushing workflows through n8n's public REST API from Actions is portable and plugin-free. |
 | Cache operations | Native Supabase node | HTTP Request node for Supabase PATCH/INSERT silently fails without error output in n8n — native Supabase node handles auth and operations correctly with visible output. |
 
 ---
@@ -136,7 +138,7 @@ expires_at  timestamptz             -- TTL: set to 2027-01-01
 updated_at  timestamptz             -- updated on each cache hit
 ```
 
-RLS is enabled on both tables with permissive policies. The anon key is used for dashboard reads; the service role key is used for n8n writes.
+RLS is enabled on both tables. The only policy lets the `anon` role **read** `support_logs` — that is all the public dashboard needs. Anonymous inserts, updates and deletes are rejected, and `response_cache` is not readable without the service role. n8n uses the service role key (stored in its credential store), which bypasses RLS.
 
 ---
 
@@ -148,7 +150,7 @@ Entry point for all chat-channel traffic (Webhook + Chat Trigger). Normalises in
 
 ### WF3 — Action Layer
 
-Handles intents requiring live data lookup. Gemini extracts `order_id` and `action_type` from the message. A Check Missing Entities gate blocks on missing `order_id` only (email was removed from the gate after observing it caused unnecessary friction on order status queries). Shopify is queried via HTTP Request with `httpMultipleHeadersAuth` (X-Shopify-Access-Token) rather than n8n's native Shopify node — the native node's credential type was incompatible with the Railway deployment and required a workaround via API injection. Four Stripe-backed paths: refund success (auto-process), refund pending (Slack approval), no match (escalate), and order not found (Slack alert). All paths log structured output to WF7.
+Handles intents requiring live data lookup. Gemini extracts `order_id` and `action_type` from the message. A Check Missing Entities gate blocks on missing `order_id` only (email was removed from the gate after observing it caused unnecessary friction on order status queries). Shopify is queried via HTTP Request with `httpMultipleHeadersAuth` (X-Shopify-Access-Token) rather than n8n's native Shopify node, whose credential type did not work in this setup; a plain access-token header does. Four Stripe-backed paths: refund success (auto-process), refund pending (Slack approval), no match (escalate), and order not found (Slack alert). All paths log structured output to WF7.
 
 ### WF4 — RAG Resolution
 
@@ -160,7 +162,7 @@ Receives Slack interactive action POSTs. Parses `action_id` and `value` (ticket_
 
 ### WF6 — Gmail Intake
 
-Polls Gmail every minute for unread messages labelled `voltshop-support`. A Filter Sender node drops self-replies (n8n's reply-to-self loop) by checking the From address against the system account. Normalised email body is passed to WF4 (RAG) as `chatInput`; the Gmail reply uses the WF4 output directly. Logs with `channel=email` for dashboard channel breakdown.
+Polls Gmail every minute for messages labelled `voltshop-support` — only while the Cloud Run service is awake (see Known Limitations). A Filter Sender node drops self-replies (n8n's reply-to-self loop) by checking the From address against the system account. The email snippet is passed to WF4 (RAG) as `chatInput` and `raw_message`, with `intent: general`, so email tickets log the customer's message like chat tickets do; the Gmail reply uses the WF4 output directly. Logs with `channel=email` for dashboard channel breakdown. The poller's state (last check time, recently answered message IDs) is stored in the database, so restarts and cold starts do not re-answer old emails.
 
 ### WF7 — Supabase Logger
 
@@ -190,7 +192,9 @@ The Supabase `support_logs` table is the system's primary observability surface.
 
 ## Performance
 
-Load tests were run post-deployment against the live Railway instance with caching enabled and real response time tracking. All tests use async concurrent requests via `asyncio` + `httpx`. Results reflect genuine system behaviour including free-tier constraints.
+Load tests were run in April 2026 against the previous always-on deployment, with caching enabled and real response time tracking. All tests use async concurrent requests via `asyncio` + `httpx`. Results reflect genuine system behaviour including free-tier constraints.
+
+They have not been re-run on Cloud Run. With a single instance (max 1), the free-tier Gemini key and a $1 spending cap, a 500-ticket run would mostly measure those limits — and could use up the cap. Treat the numbers below as the system's behaviour on an always-on host.
 
 ### Grounded RAG Test — `load_test_grounded.py`
 
@@ -248,13 +252,31 @@ p95 response time  : 4.0s   (logged tickets only — see known limitations)
 | Qdrant unavailable | RAG retrieval fails | WF4 agent returns ungrounded response; escalates to Slack |
 | Supabase write failure | Ticket not logged | WF7 retries 3×; ticket processed but not logged — silent data loss |
 | Shopify API auth failure | WF3 order lookups fail | Entire WF3 execution fails; customer receives error response |
-| Railway container restart | Brief downtime | All workflows temporarily unavailable; Railway Hobby tier keeps containers always-on — no idle issue |
+| Cloud Run scaled to zero | First request waits ~15–20 s | Cold start; VoltBot shows "Waking up the agent…" after 5 s and retries for up to 90 s. Slack button clicks and Gmail are affected — see Known Limitations |
+| Cloud Run instance restart (deploy, cold start) | Brief unavailability | Workflows re-register on boot; WF6's Gmail poller state is in the database, so no email is answered twice |
+| $1 spending cap reached | Whole system offline | The cap pauses the Cloud Run service; chat, email, Slack buttons and logging stop until the cap is raised or the month resets |
+| Supabase or Qdrant paused for inactivity | Startup / RAG failures | Prevented by the keep-alive job; if it fails, GitHub emails the repo owner |
 | Cache duplicate key | Write Cache skips | Unique constraint on `query_hash` causes upsert conflict — handled by `resolution=merge-duplicates` |
-| Slack token expired | Escalation silent failure | Slack nodes return `not_authed`; ticket logged but agent not notified |
+| Slack token expired | Escalation silent failure | Slack nodes return `not_authed`; ticket logged but agent not notified. Fix by updating the `Slack Bot` credential in n8n |
 
 ---
 
 ## Known Limitations
+
+**Cold start: about 15–20 s after idle**
+Cloud Run scales n8n to zero about 15 minutes after the last request. The next request starts a new instance: `/health` answers after ~15 s and webhooks work after ~20 s. VoltBot covers this with a "Waking up the agent…" message and retries; for demos, warm up first (see [Demo warm-up](#demo-warm-up)).
+
+**Gmail is only polled while the service is awake**
+WF6 polls every minute, but only while an instance is running. An email that arrives while n8n is asleep is answered on the next wake-up, together with any others that arrived in the meantime. There is no real-time email reply between demos.
+
+**The $1 spending cap can pause everything**
+The Cloud Run service has a $1/month spending cap with enforcement. If it is reached, Google pauses the service and every channel stops until the cap is raised or the next month starts. To lift it, go to Google Cloud console → Billing → Budgets & alerts → `n8n-cx-agent-budget`, raise the amount or turn off enforcement, then call `/health` to confirm the service answers. Normal demo use stays far below the cap; the main risk is something keeping the instance awake — such as an open browser tab on the service URL, which once woke it about 30 times in one night.
+
+**Slack button clicks fail on a cold instance**
+Slack waits only 3 seconds for an interactivity response and does not retry. A Mark Resolved or Resolve + Add to KB click that wakes the instance fails (Slack shows an error), and has to be clicked again once n8n is warm.
+
+**Free-tier idle limits (covered by the keep-alive job)**
+Supabase pauses free projects after about a week without activity; Qdrant Cloud suspends free clusters after 1 week idle and deletes them after 4 weeks. The keep-alive job reads from both every Monday and Thursday. GitHub disables scheduled workflows in public repositories after 60 days without a commit; it emails a warning first, and re-enabling is one click.
 
 **No session memory**
 Each message is stateless. Multi-turn conversations require the customer to provide full context in a single message. Designed fix: `pending_sessions` Supabase table + WF2 pre-check.
@@ -269,7 +291,7 @@ KB updates via WF5 take effect immediately for new queries but existing cache en
 WF6 processes Gmail snippet (~100 chars) rather than full MIME body. Sufficient for short queries; may miss context in long emails.
 
 **No WF7 authentication**
-WF7's `log-ticket` webhook endpoint has no authentication. Any POST to the URL will be processed. Mitigated by Railway's network layer in production.
+WF7's `log-ticket` webhook endpoint has no authentication: anyone who knows the URL can POST a row into `support_logs` or mark a ticket resolved. The Supabase RLS lockdown does not help here, because WF7 writes with the service role. Accepted for a demo system; the fix would be header authentication on the WF7 webhook and on every caller.
 
 **Supabase connection pool exhaustion**
 Free tier Postgres has a connection pool ceiling. At sustained concurrency >15, write failures occur silently. WF7 retries 3× but pool exhaustion can cause all retries to fail.
@@ -303,10 +325,14 @@ n8n-cx-agent/
 ├── scripts/
 │   ├── ingest_knowledge_base.py     # Embed and upsert KB into Qdrant Cloud
 │   ├── load_test_grounded.py        # 989-ticket grounded RAG load test
-│   └── load_test_mixed.py           # 500-ticket mixed realistic load test
-├── dashboard/
+│   ├── load_test_mixed.py           # 500-ticket mixed realistic load test
+│   ├── deploy_workflows.py          # CD: push changed workflows to the Cloud Run n8n
+│   ├── ci_guard.py                  # CI: block secrets, old hosts, unsafe Cloud Run config
+│   └── backup_qdrant.py             # One-off KB backup (JSONL + snapshot, saved outside the repo)
+├── dashboard/                       # Published by Netlify (see netlify.toml)
 │   ├── index.html                   # VoltShop storefront + VoltBot chat widget
 │   └── voltshop_dashboard.html      # Real-time analytics dashboard
+├── infra/cloudrun/service.yaml      # Cloud Run service definition (no secret values)
 ├── docs/
 │   ├── voltshop_architecture.md
 │   ├── voltshop_architecture.svg
@@ -314,10 +340,13 @@ n8n-cx-agent/
 ├── load_test_grounded_results.json  # 989-ticket grounded load test results
 ├── load_test_mixed_results.json     # 500-ticket mixed load test results
 ├── docker-compose.yml               # Local n8n development setup
+├── netlify.toml                     # Static site: publish dashboard/, no build
 ├── requirements.txt
+├── .flake8
 └── .github/workflows/
-    ├── ci.yml                       # Validate workflow JSONs + required files
-    └── cd.yml                       # Deploy workflows to Railway n8n via REST API
+    ├── ci.yml                       # JSON, required files, flake8, guard
+    ├── cd.yml                       # Deploy to Cloud Run (service + changed workflows)
+    └── keepalive.yml                # Mon/Thu read-only pings to Supabase and Qdrant
 ```
 
 ---
@@ -333,7 +362,7 @@ cp .env.example .env
 python -m venv venv && source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-docker compose up -d  # starts n8n on localhost:5678 with Postgres backing
+docker compose up -d  # starts n8n on localhost:5678 (local SQLite) and a local Qdrant on :6333
 ```
 
 **Credential setup order matters:**
@@ -351,19 +380,90 @@ python scripts/ingest_knowledge_base.py
 
 ---
 
+## Why Cloud Run works now
+
+An earlier attempt to run n8n on Cloud Run was abandoned because the n8n editor showed a permanent "offline / connection lost" state. The editor keeps a live push connection (WebSocket) to n8n, and n8n checks that the connection's origin matches the address it believes it is served from. The likely cause: without its public address configured, n8n behind Google's front end compares the browser's `https://…run.app` origin with its own default (plain HTTP, internal host), and rejects the connection. The earlier configuration is not available to confirm this.
+
+What fixed it is telling n8n its real public address and that it sits behind exactly one proxy:
+
+| Setting | Value | Why |
+|---|---|---|
+| `N8N_HOST`, `N8N_PROTOCOL` | the `run.app` host, `https` | n8n's own idea of its address matches the browser's |
+| `N8N_EDITOR_BASE_URL`, `WEBHOOK_URL` | `https://<host>/` | editor links and webhook URLs use the public address |
+| `N8N_PROXY_HOPS` | `1` | n8n trusts Google's `X-Forwarded-*` headers for the original protocol and host |
+| `N8N_PUSH_BACKEND` | `websocket` | Cloud Run supports WebSockets |
+| Request timeout / session affinity | 3600 s / on | long-lived push connections are not cut early |
+
+With these settings the editor stayed connected through a 30-minute test, and executions streamed live into the editor. The setting combination was verified as a whole; it was not narrowed down to one single variable.
+
+Three other Cloud Run issues had to be solved along the way:
+
+- **State:** containers are stateless, so n8n stores everything in Supabase Postgres (own schema), not in a local SQLite file.
+- **Background work:** with request-based billing, Cloud Run throttles the CPU between requests. The Gmail poller and work n8n does after answering a webhook (WF5) crawled, and webhooks took ~71 s to come up after a cold start. Instance-based billing keeps the CPU allocated while the instance runs and still scales to zero when idle.
+- **Health check path:** Cloud Run reserves some paths ending in `z`; `/healthz` returns 404 from Google's front end and never reaches n8n. n8n's health endpoint is moved to `/health`.
+
+---
+
 ## Production Deployment
 
-n8n runs on Railway using the official n8n + Postgres template (persistent container, native WebSocket). Cloud Run was evaluated and rejected — n8n's WebSocket/SSE origin check is incompatible with GCP's managed proxy layer, causing permanent UI offline state.
+```
+Browser ──► Netlify (storefront + dashboard, deployed from GitHub main)
+   │                 └──► Supabase REST (anon key, read-only on support_logs)
+   ▼
+Cloud Run "n8n" (Tokyo, 1 instance max, scales to zero)
+   ├──► Supabase Postgres, schema n8n  (session pooler, TLS verified with Supabase's CA)
+   ├──► Supabase REST (service role, via n8n credential)
+   ├──► Qdrant Cloud (Frankfurt) · Gemini API · Shopify · Stripe · Slack · Gmail
+   ▲
+Slack buttons · Gmail poll (while awake) · VoltBot webhook
+```
 
-Qdrant runs on Qdrant Cloud free tier (Frankfurt, GCP, cosine distance, 3072-dim vectors).
+**Cloud Run service** — defined in `infra/cloudrun/service.yaml` and deployed with `gcloud run services replace` (by CD):
 
-Frontend is deployed to Netlify. The VoltBot widget POSTs to the Railway webhook URL. The analytics dashboard queries Supabase directly from the browser using the anon key.
+| Setting | Value |
+|---|---|
+| Image | `docker.io/n8nio/n8n:2.17.7` (pinned; pulled straight from Docker Hub) |
+| Region | `asia-northeast1` (Tokyo) — next to the Supabase database, which n8n queries on every execution |
+| Scaling | min 0, **max 1** — a second instance would run the Gmail poller twice |
+| Billing | instance-based (CPU always allocated while running), 1 vCPU, 2 GiB |
+| Timeout / affinity / startup boost | 3600 s / on / on |
+| Health endpoint | `/health` (`N8N_ENDPOINT_HEALTH=health`) |
+| Execution pruning | keep 7 days, max 5,000 executions — keeps n8n well under Supabase's 500 MB |
+| Telemetry | diagnostics and version notifications off |
 
-**Railway environment variables:**
+**n8n's database:** the existing Supabase project, schema `n8n`, role `n8n_app` — it owns the `n8n` schema and has no access to `support_logs` or `response_cache`. It connects through Supabase's **session pooler** on port 5432, which is IPv4 — the direct connection is IPv6-only, and the transaction pooler breaks n8n's migrations. TLS is verified against Supabase's root CA, mounted from Secret Manager (`DB_POSTGRESDB_SSL_CA_FILE`; n8n only reads the CA from a file through the `_FILE` suffix).
 
-- `N8N_ENCRYPTION_KEY` — must match the key used when credentials were created
-- `DB_TYPE=postgresdb` + `DB_POSTGRESDB_*` connection vars
-- All service API keys managed via n8n credential store, not environment variables
+**Secrets:** Secret Manager holds the n8n encryption key, the database password, the Supabase CA certificate and the n8n API key; Cloud Run's runtime service account can read only the first three. Service API keys (Gemini, Qdrant, Supabase, Shopify, Stripe, Slack, Gmail) live in n8n's encrypted credential store — no workflow node contains a token.
+
+**Workflows** were imported with their original IDs (`n8n import:workflow`), so sub-workflow calls and CD mappings did not change. Credentials were re-created in the n8n UI.
+
+**Frontend:** Netlify deploys the `dashboard/` folder from GitHub `main` on every push (no build step; `netlify.toml` sets `base = "dashboard"` so Netlify never installs Python dependencies). VoltBot calls the Cloud Run webhook. The analytics dashboard reads `support_logs` directly with the Supabase anon key, which is public by design and limited by RLS to reading that one table.
+
+---
+
+## CI/CD
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| **CI** (`ci.yml`) | every push and PR to `main` | Python 3.14; validates the workflow JSONs; checks required files; `flake8 scripts/`; runs `scripts/ci_guard.py`, which fails on secrets or redaction leftovers, old hosting URLs, fake credential IDs, or a Cloud Run config with more than one instance, CPU throttling, or an unpinned image |
+| **CD** (`cd.yml`) | push to `main` touching `workflows/` or `infra/cloudrun/`; or manual | Redeploys the Cloud Run service only if `infra/cloudrun/` changed, then updates only the workflow files that changed |
+| **Keep-alive** (`keepalive.yml`) | Mon + Thu 06:17 UTC; or manual | Reads one Supabase row and the Qdrant collection; never touches n8n or Slack |
+
+**How CD updates a workflow** (`scripts/deploy_workflows.py`): it waits out a cold start, targets the workflow by the `id` in its JSON (it never creates workflows), keeps the live credentials node by node, sends the Gmail poller state back unchanged, skips workflows that already match, re-publishes only workflows that were already active, and never activates or deactivates anything. It then reads the workflow back and fails the run if the active state, credentials or poller state changed. A manual run can check all workflows, redeploy the service, or do a dry run.
+
+**Authentication:** GitHub logs in to Google Cloud through **Workload Identity Federation** — no service-account key exists. Only runs from `main` of this repository are accepted, and the deployer account can update the `n8n` Cloud Run service and nothing else. The n8n API key is a GitHub secret.
+
+---
+
+## Demo warm-up
+
+1. Wake the service once (~15–20 s):
+   ```bash
+   curl https://n8n-389802584130.asia-northeast1.run.app/health
+   ```
+2. Wait about 20 seconds so webhooks and the Gmail poller are registered, then start the demo.
+3. **Never leave a `run.app` browser tab open** — not the editor, not `/health`. Browsers reload such tabs in the background, and every reload keeps the instance awake and billed. Close the editor tab when the demo is over; the service goes back to sleep about 15 minutes after the last request.
+4. Slack buttons only work while the instance is warm; if a click fails, click again.
 
 ---
 

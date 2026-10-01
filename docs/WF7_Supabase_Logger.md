@@ -59,5 +59,5 @@ flowchart TD
 - **Parse Incoming Payload extracts from `.body`** — Webhook node wraps the POST body inside a `body` key. Code node unwraps it: `const data = $input.first().json.body; return [{json: data}];`
 - **Retry on fail enabled** — 3 attempts with 1s wait on both Insert and Update nodes. Handles transient Supabase connection pool exhaustion under concurrent load without breaking the customer-facing response path
 - **`onError: continueRegularOutput`** — logging failures do not propagate back to the caller workflow. The customer-facing response is returned regardless of whether the log write succeeds
-- **RLS is enabled** on `support_logs` with a permissive `ALL` policy — anon key used for dashboard reads, service role key used for WF7 writes
+- **RLS is enabled** on `support_logs` and `response_cache` — the only policy lets `anon` read `support_logs` (dashboard); WF7 writes with the service role key, which bypasses RLS
 - **Note:** Any new table created in this Supabase project will have RLS auto-enabled and will require `ALTER TABLE <name> DISABLE ROW LEVEL SECURITY` before n8n can write to it
