@@ -48,10 +48,10 @@ The architecture is intentionally modular: each workflow owns a single responsib
 │            ├──► Normalize Input ──► djb2 Hash ──► Cache Lookup       │
 │  Chat  ────┘                                     │                   │
 │                                           hit ◄──┘──► miss           │
-│                                            │              │           │
-│                                     Respond (~800ms)  Gemini         │
-│                                     Log cache hit     Classify       │
-│                                                            │          │
+│                                            │              │          │
+│                                 Respond (~0.7–1.2 s)  Gemini         │
+│                                 Log cache hit         Classify       │
+│                                                            │         │
 │                              ┌─────────────┬──────────────┤          │
 │                           escalate      action           RAG         │
 └──────────────────────────────┼─────────────┼──────────────┼──────────┘
@@ -72,7 +72,7 @@ The architecture is intentionally modular: each workflow owns a single responsib
                                      │ order_not_fnd │
                                      └───────────────┘
 
-  Gmail ──► WF6 (poll, 1min) ──► filter self-replies ──► WF4 ──► reply
+  Gmail ──► WF6 (poll, 1 min, while awake) ──► filter self-replies ──► WF4 ──► reply
 
   Slack button ──► WF5 ──► mark_resolved  → WF7: resolved=true
                        └──► resolve_add_kb → agent's Slack thread reply → Gemini FAQ entry
@@ -117,7 +117,7 @@ Handles intents requiring live data lookup. Gemini extracts `order_id` and `acti
 
 ### WF4 — RAG Resolution
 
-Gemini powered RAG agent with Qdrant as a retrieval tool. AI Agent queries Qdrant `voltshop_kb`, appends `CONFIDENCE: [1-5]` and `GROUNDED: [true/false]` metadata. Parse Confidence Code node extracts both values and passes `queryHash` + `normalizedQuery` through to downstream nodes. Grounded responses are written to `response_cache` with a plain insert (native Supabase node), expiring one year after the write. If the `query_hash` already exists — for example two identical questions at the same moment — the insert fails on the unique constraint, but Write Cache is set to On Error → Continue, so the customer's answer and the WF7 log call are unaffected. Expired rows are deleted nightly by a Supabase `pg_cron` job, so an expired entry never blocks a fresh write. Ungrounded responses build a Slack Block Kit payload with Mark Resolved and Resolve + Add to KB interactive buttons carrying the `ticket_id` as the action value. AI Agent prompt instructs Gemini to preserve full KB detail without summarising.
+Gemini powered RAG agent with Qdrant as a retrieval tool. AI Agent queries Qdrant `voltshop_kb`, appends `CONFIDENCE: [1-5]` and `GROUNDED: [true/false]` metadata. Parse Confidence Code node extracts both values and passes `queryHash` + `normalizedQuery` through to downstream nodes. Grounded responses are written to `response_cache` with a plain insert (native Supabase node), expiring one year after the write. If the `query_hash` already exists — for example two identical questions at the same moment — the insert fails on the unique constraint, but Write Cache is set to On Error → Continue, so the customer's answer and the WF7 log call are unaffected. Expired rows are deleted nightly by a Supabase `pg_cron` job, so an expired entry is removed within a day; until then a failed write is harmless (On Error → Continue). Ungrounded responses build a Slack Block Kit payload with Mark Resolved and Resolve + Add to KB interactive buttons carrying the `ticket_id` as the action value. AI Agent prompt instructs Gemini to preserve full KB detail without summarising.
 
 ### WF5 — Feedback Loop
 
@@ -129,7 +129,7 @@ Polls Gmail every minute for messages labelled `voltshop-support` — only while
 
 ### WF7 — Supabase Logger
 
-Stateless logging endpoint exposed as a webhook (`/webhook/log-ticket`). All upstream workflows POST structured JSON; WF7 upserts to `support_logs`. Retry on fail (3 attempts, 1s wait) handles the Supabase free tier connection pool ceiling under concurrent load. The `onError: continueRegularOutput` flag prevents logging failures from breaking the customer-facing response path.
+Stateless logging endpoint exposed as a webhook (`/webhook/log-ticket`). All upstream workflows POST structured JSON; WF7 inserts new tickets into `support_logs` and, for `action=update`, updates the matching ticket. Retry on fail (3 attempts, 1s wait) handles the Supabase free tier connection pool ceiling under concurrent load. The `onError: continueRegularOutput` flag prevents logging failures from breaking the customer-facing response path.
 
 ---
 
@@ -433,7 +433,7 @@ n8n-cx-agent/
 │   ├── technical-support-faq.md
 │   └── warranty-policy.md
 ├── scripts/
-│   ├── ingest_knowledge_base.py     # Embed and upsert KB into Qdrant Cloud
+│   ├── ingest_knowledge_base.py     # Rebuild the KB collection (deletes and recreates — see Local Setup)
 │   ├── load_test_grounded.py        # 989-ticket grounded RAG load test
 │   ├── load_test_mixed.py           # 500-ticket mixed realistic load test
 │   ├── deploy_workflows.py          # CD: push changed workflows to the Cloud Run n8n
@@ -491,7 +491,7 @@ docker compose up -d  # starts n8n on localhost:5678 (local SQLite) and a local 
 python scripts/ingest_knowledge_base.py
 ```
 
-**WF7 must be activated before any other workflow** — it is the logging dependency for WF2, WF3, and WF4.
+**WF7 must be activated before any other workflow** — it is the logging dependency for WF2, WF3, WF4 and WF5.
 
 ---
 
