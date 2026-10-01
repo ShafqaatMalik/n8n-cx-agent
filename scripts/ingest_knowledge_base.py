@@ -135,7 +135,8 @@ def main():
     for filepath in md_files:
         filename = Path(filepath).stem
         print(f"Processing: {filename}")
-        with open(filepath, "r") as f:
+        # Explicit UTF-8: Windows defaults to cp1252, which turned "—" into "â€”" in Qdrant
+        with open(filepath, "r", encoding="utf-8") as f:
             text = f.read()
 
         # Remove the H1 title line (first line starting with #)
