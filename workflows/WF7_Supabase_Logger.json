@@ -106,8 +106,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        800,
-        0
+        816,
+        16
       ],
       "id": "99945be0-cfa0-405f-9b37-f2df190f2b0e",
       "name": "Respond to Webhook"
