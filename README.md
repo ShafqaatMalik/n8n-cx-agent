@@ -13,11 +13,11 @@ Demo system on scale-to-zero hosting: the first message after idle takes ~20 s w
 
 ## Key results
 
-Measured in April 2026 on the previous always-on host — details in [docs/performance.md](docs/performance.md).
+Load-test rows: April 2026, on the previous always-on host. Dashboard row: as of October 2026. Details in [docs/performance.md](docs/performance.md).
 
 | Metric | Result |
 |---|---|
-| Auto-resolve rate (live dashboard, 3,500+ tickets) | 84% |
+| Auto-resolve rate (live dashboard, 3,600+ tickets) | 85% |
 | Cache hit rate (grounded load test, 989 tickets) | 95.6% |
 | HTTP success and throughput (both load tests) | 100% at 5.9 req/s |
 | p95 latency | 4.7 s grounded · 7.2 s mixed |
@@ -114,6 +114,7 @@ The architecture is intentionally modular: each workflow owns a single responsib
 ## Engineering highlights
 
 - **Self-healing knowledge base** — one Slack click turns a human agent's reply into a new Qdrant entry (WF5), so the same question is answered automatically next time.
+- **Observability built in** — WF7 logs every ticket from every channel with structured fields (channel, route, source, grounded, confidence, response_ms). A live analytics dashboard reads them straight from Supabase and shows auto-resolve and escalation rates, escalation resolution, latency percentiles (avg, p50, p95), channel and route breakdowns, ticket volume over time, the top escalated intents, and WF3's transaction outcomes.
 - **Grounding gate** — every RAG answer carries a confidence score and a grounded flag; ungrounded answers go to Slack with resolution buttons instead of being sent as fact.
 - **Cache in front of the LLM** — repeat questions skip Gemini and answer in ~0.7–1.2 s (95.6% hit rate in the grounded load test).
 - **Real transactions with guardrails** — refunds up to $50 are processed automatically in Stripe; larger ones wait for approval in Slack.

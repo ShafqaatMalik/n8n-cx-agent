@@ -42,15 +42,15 @@ Min latency    : 777ms
 Max latency    : 10,877ms    ← WF3 Shopify + Stripe chain
 ```
 
-### Live Dashboard — 3,500+ tickets (as of April 2026)
+### Live Dashboard — 3,689 tickets (as of 2 Oct 2026)
 
 ```
-Auto-resolve rate  : 84%
-Grounding rate     : 84%
-Escalation rate    : 13%
-Esc. resolution    : 19%    (via WF5 Slack buttons)
-p50 response time  : 1.2s
-p95 response time  : 4.0s   (logged tickets only — see Observability)
+Auto-resolve rate  : 85%
+Grounding rate     : 85%
+Escalations        : 460 (12%)
+Esc. resolution    : 21%    (via WF5 Slack buttons)
+p50 response time  : 1.8s
+p95 response time  : 4.3s   (logged tickets only — see Observability)
 ```
 
 **Cache performance:** First hit 4-7s (Gemini + Qdrant). Subsequent hits ~700ms-1.2s. ~5-8x latency improvement.
@@ -73,4 +73,4 @@ The Supabase `support_logs` table is the system's primary observability surface.
 - Ticket volume over time (`created_at`)
 - Cache hit rate (`source=wf2`)
 
-**Dashboard p95 caveat:** The dashboard p95 (4.0s) is calculated from logged tickets only. WF3 route tickets (Shopify + Stripe pipeline, 6-11s end-to-end) are disproportionately lost to Supabase write failures under concurrent load and are underrepresented. The load test p95 of 7.2s is the accurate system-level figure.
+**Dashboard p95 caveat:** The dashboard p95 (4.3s) is calculated from logged tickets only. WF3 route tickets (Shopify + Stripe pipeline, 6-11s end-to-end) are disproportionately lost to Supabase write failures under concurrent load and are underrepresented. The load test p95 of 7.2s is the accurate system-level figure.
