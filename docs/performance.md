@@ -61,16 +61,19 @@ p95 response time  : 4.3s   (logged tickets only — see Observability)
 
 The Supabase `support_logs` table is the system's primary observability surface. Every ticket — regardless of channel, route, or outcome — produces a row. The analytics dashboard queries this table directly via the Supabase REST API with offset-based pagination (1000 rows/request) to handle the free tier's default row limit.
 
-**Metrics available from the table:**
+**Metrics the dashboard computes** (`processData()` in `dashboard/voltshop_dashboard.html`; percentages are rounded to whole numbers):
 
-- Auto-resolve rate (`escalated=false AND grounded=true`)
-- Grounding rate (`grounded=true`)
-- Escalation rate (`escalated=true`)
-- Escalation resolution rate (`resolved=true WHERE escalated=true`)
-- Response time distribution (p50, p95 from `response_ms`)
-- Channel breakdown (`channel`)
-- Route breakdown (`route`)
-- Ticket volume over time (`created_at`)
-- Cache hit rate (`source=wf2`)
+- Tickets: all rows in `support_logs`
+- Auto-resolve rate: `count(escalated = false) / tickets` — grounding is not part of it
+- Escalations: `count(escalated = true AND source <> 'wf3')` — **WF3 tickets are excluded**; their outcomes are shown in the WF3 panel instead. Escalation rate: `escalations / tickets`. Because escalated WF3 tickets count in neither, auto-resolve and escalation rates need not add up to 100%
+- Escalation resolution rate: `count(resolved = true among those escalations) / escalations`
+- Grounding rate: `count(grounded = true) / tickets`
+- Response time (Avg, P50, P95): over tickets with `response_ms > 0`, sorted ascending; Avg is the mean; P50/P95 take the value at position `ceil(N × p / 100)` (nearest rank)
+- Channel breakdown: tickets per `channel` (lower-cased; empty → `other`; `web_chat` rows skipped), each with its `escalated = true` count — WF3 tickets included here
+- Ticket volume over time: tickets per UTC day of `created_at`
+- Top escalated intents: the escalations above (WF3 excluded) grouped by `intent` (empty → `Unclassified`), top 8 by count, each with its grounded count and average confidence
+- WF3 transaction outcomes: tickets with `source = 'wf3'` counted per `route` (`refund_success`, `refund_pending`, `no_match`, `order_not_found`); success and pending rates are `route count / WF3 tickets`
+
+Not on the dashboard, but available from the table: cache hit rate = `count(route = 'cache_hit') / tickets` (`source = 'wf2'` alone also matches WF2's direct escalations).
 
 **Dashboard p95 caveat:** The dashboard p95 (4.3s) is calculated from logged tickets only. WF3 route tickets (Shopify + Stripe pipeline, 6-11s end-to-end) are disproportionately lost to Supabase write failures under concurrent load and are underrepresented. The load test p95 of 7.2s is the accurate system-level figure.
