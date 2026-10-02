@@ -102,11 +102,11 @@ The architecture is intentionally modular: each workflow owns a single responsib
 | Ticket store | Supabase (Postgres) — `support_logs`, `response_cache` | Structured logging, RLS, REST API without ORM overhead. Native Postgres means no migration risk if moving off Supabase. |
 | Cache hash | djb2 | O(n) string hash, no crypto module dependency in n8n Code node, deterministic collision resistance sufficient for query-length strings. |
 | Cache operations | Native Supabase node | HTTP Request node for Supabase PATCH/INSERT silently fails without error output in n8n — native Supabase node handles auth and operations correctly with visible output. |
-| Messaging | Slack (interactive buttons) |  |
-| Email | Gmail (OAuth2, poll trigger) |  |
-| Commerce | Shopify Admin API, Stripe API (sandboxes) |  |
+| Messaging | Slack (interactive buttons) | Where support agents already work; Block Kit buttons give one-click resolution and feed the self-healing KB. |
+| Email | Gmail (OAuth2, poll trigger) | A second real channel with no extra infrastructure; the poll trigger needs no public inbound webhook. |
+| Commerce | Shopify Admin API, Stripe API (sandboxes) | Real APIs in sandbox mode, so lookups and refunds are genuine transactions without real money. |
 | Frontend | Vanilla HTML/CSS/JS — Netlify, deployed from GitHub | No build pipeline, no framework dependency; Netlify serves the `dashboard/` folder straight from GitHub. |
-| Secrets | n8n credential store (service keys), Google Secret Manager (deploy secrets), GitHub Secrets (CI/CD) |  |
+| Secrets | n8n credential store (service keys), Google Secret Manager (deploy secrets), GitHub Secrets (CI/CD) | No token in any workflow file or the repo; each secret lives only where it is used. |
 | CI/CD | GitHub Actions — CI, CD to Cloud Run (Workload Identity Federation), keep-alive | n8n's native Git integration requires an Enterprise licence. Pushing workflows through n8n's public REST API from Actions is portable and plugin-free. |
 
 ---
