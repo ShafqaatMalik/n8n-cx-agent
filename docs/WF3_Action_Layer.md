@@ -4,6 +4,12 @@
 
 ---
 
+## Summary
+
+Handles intents requiring live data lookup. Gemini extracts `order_id` and `action_type` from the message. A Check Missing Entities gate blocks on missing `order_id` only (email was removed from the gate after observing it caused unnecessary friction on order status queries). Shopify is queried via HTTP Request with `httpMultipleHeadersAuth` (X-Shopify-Access-Token) rather than n8n's native Shopify node, whose credential type did not work in this setup; a plain access-token header does. Four exit paths: refund success (auto-process), refund pending (Slack approval), no match (escalate), and order not found (Slack alert). All paths log structured output to WF7.
+
+---
+
 ```mermaid
 flowchart TD
     A([Called by WF2\naction intent]) --> B[Basic LLM Chain\nGemini entity extraction\norder_id + action_type]

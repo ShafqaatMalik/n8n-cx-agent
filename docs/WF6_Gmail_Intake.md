@@ -4,6 +4,12 @@
 
 ---
 
+## Summary
+
+Polls Gmail every minute for messages labelled `voltshop-support` — only while the Cloud Run service is awake (see Known Limitations). A Filter Sender node drops self-replies (n8n's reply-to-self loop) by checking the From address against the system account. The email snippet is passed to WF4 (RAG) as `chatInput` and `raw_message`, with `intent: general`, so email tickets log the customer's message like chat tickets do; the Gmail reply uses the WF4 output directly. Logs with `channel=email` for dashboard channel breakdown. The poller's state (last check time, recently answered message IDs) is stored in the database, so restarts and cold starts do not re-answer old emails.
+
+---
+
 ```mermaid
 flowchart TD
     A([Gmail Trigger\nPolls the support inbox\nvoltshop-support label\nevery 1 minute while awake]) --> B[Filter Sender\nDrop self-replies\nfrom the system account]

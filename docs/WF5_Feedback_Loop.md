@@ -4,6 +4,12 @@
 
 ---
 
+## Summary
+
+Receives Slack interactive action POSTs. Parses `action_id` and `value` (ticket_id) from the payload. **Mark Resolved** sends an update to WF7, which sets `resolved=true` on the matching row. **Resolve + Add to KB** fetches the human agent's reply in the Slack thread (`conversations.replies`), has Gemini turn the customer question and that reply into an FAQ entry (full detail, not summarised), embeds it with Gemini Embedding 001 and inserts it into Qdrant as a new point; WF7 then marks the ticket resolved with the agent's reply as `resolution_note`. This grows the KB without a manual ingest cycle. This is the self-healing mechanism — production escalations directly improve future RAG quality.
+
+---
+
 ```mermaid
 flowchart TD
     A([Slack Button Click\nCloud Run n8n webhook]) --> B[Parse Slack Payload\nExtract action_id + ticket_id + thread_ts\ncustomer_message + ai_response]

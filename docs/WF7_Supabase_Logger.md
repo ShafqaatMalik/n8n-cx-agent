@@ -4,6 +4,12 @@
 
 ---
 
+## Summary
+
+Stateless logging endpoint exposed as a webhook (`/webhook/log-ticket`). All upstream workflows POST structured JSON; WF7 inserts new tickets into `support_logs` and, for `action=update`, updates the matching ticket. Retry on fail (3 attempts, 1s wait) handles the Supabase free tier connection pool ceiling under concurrent load. The `onError: continueRegularOutput` flag prevents logging failures from breaking the customer-facing response path.
+
+---
+
 ```mermaid
 flowchart TD
     A([Called by WF2 · WF3 · WF4 · WF5\nPOST to /webhook/log-ticket]) --> B[Parse Incoming Payload\nconst data = input.first.json.body\nreturn json data]

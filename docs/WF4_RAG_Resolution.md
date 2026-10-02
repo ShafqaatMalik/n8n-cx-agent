@@ -4,6 +4,12 @@
 
 ---
 
+## Summary
+
+Gemini powered RAG agent with Qdrant as a retrieval tool. AI Agent queries Qdrant `voltshop_kb`, appends `CONFIDENCE: [1-5]` and `GROUNDED: [true/false]` metadata. Parse Confidence Code node extracts both values and passes `queryHash` + `normalizedQuery` through to downstream nodes. Grounded responses are written to `response_cache` with a plain insert (native Supabase node), expiring one year after the write. If the `query_hash` already exists — for example two identical questions at the same moment — the insert fails on the unique constraint, but Write Cache is set to On Error → Continue, so the customer's answer and the WF7 log call are unaffected. Expired rows are deleted nightly by a Supabase `pg_cron` job, so an expired entry is removed within a day; until then a failed write is harmless (On Error → Continue). Ungrounded responses build a Slack Block Kit payload with Mark Resolved and Resolve + Add to KB interactive buttons carrying the `ticket_id` as the action value. AI Agent prompt instructs Gemini to preserve full KB detail without summarising.
+
+---
+
 ```mermaid
 flowchart TD
     A([Called by WF2 rag intent\nor WF6 Gmail Intake]) --> B[Generate Ticket ID\nEpoch ms · capture start_time · channel]

@@ -4,6 +4,12 @@
 
 ---
 
+## Summary
+
+Entry point for all chat-channel traffic (Webhook + Chat Trigger). Normalises input, computes a djb2 hash for cache lookup, checks Supabase `response_cache` with an expiry filter, cache hit responds immediately and logs asynchronously; cache miss proceeds to Gemini classification and routes to one of three paths: direct escalation, action layer (WF3), or RAG resolution (WF4). Cache hit logging uses real elapsed time from `start_time` rather than a hardcoded value.
+
+---
+
 ```mermaid
 flowchart TD
     A([Webhook\nPOST from frontend]) --> C
