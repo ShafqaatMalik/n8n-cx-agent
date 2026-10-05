@@ -111,7 +111,7 @@ The architecture is intentionally modular: each workflow owns a single responsib
 
 ---
 
-## Engineering highlights
+## Engineering Decisions
 
 - **Self-healing knowledge base** — one Slack click turns a human agent's reply into a new Qdrant entry (WF5), so the same question is answered automatically next time.
 - **Observability built in** — WF7 logs every ticket from every channel with structured fields (channel, route, source, grounded, confidence, response_ms). A live analytics dashboard reads them straight from Supabase and shows auto-resolve and escalation rates, escalation resolution, latency percentiles (avg, p50, p95), channel and route breakdowns, ticket volume over time, the top escalated intents, and WF3's transaction outcomes.
